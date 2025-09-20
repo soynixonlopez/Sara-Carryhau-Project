@@ -1,0 +1,11 @@
+# Ignore problematic files for Vercel build
+scripts/
+cloudinary-images.json
+*.log
+.DS_Store
+node_modules/.cache/
+.next/cache/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
