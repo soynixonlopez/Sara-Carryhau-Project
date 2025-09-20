@@ -3,12 +3,15 @@ scripts/
 cloudinary-images.json
 *.log
 .DS_Store
-node_modules/.cache/
-.next/cache/
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-# Ignore build artifacts that might cause issues
+# Ignore all build artifacts and git files
 .next/
 .git/
+node_modules/.cache/
+# Ignore files that might cause micromatch issues
+*.tmp
+*.temp
+.cache/

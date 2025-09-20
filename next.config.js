@@ -3,40 +3,24 @@ const nextConfig = {
   images: {
     domains: ['res.cloudinary.com'],
   },
+  // Completely disable build tracing to prevent micromatch stack overflow
   experimental: {
-    optimizePackageImports: ['framer-motion'],
+    outputFileTracingRoot: undefined,
+    outputFileTracingExcludes: {
+      '*': [
+        '**/node_modules/**/*',
+        '**/.git/**/*',
+        '**/.next/**/*',
+        '**/scripts/**/*',
+        '**/cloudinary-images.json',
+      ],
+    },
   },
-  // Disable build tracing to prevent stack overflow
+  // Use standalone output with minimal tracing
   output: 'standalone',
-  generateBuildId: async () => {
-    return 'build-' + Date.now()
-  },
-  // Disable webpack build analysis to prevent stack overflow
-  webpack: (config, { isServer, dev }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-      }
-    }
-    
-    // Disable build tracing completely
-    if (!dev) {
-      config.optimization = {
-        ...config.optimization,
-        moduleIds: 'deterministic',
-      }
-    }
-    
-    return config
-  },
-  // Optimize build performance
-  swcMinify: true,
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
-  },
-  // Disable static optimization that might cause issues
   trailingSlash: false,
+  // Simple build ID to avoid complexity
+  generateBuildId: () => 'build-' + Math.random().toString(36).substr(2, 9),
 }
 
 module.exports = nextConfig
