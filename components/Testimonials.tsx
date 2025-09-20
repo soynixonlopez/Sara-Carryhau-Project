@@ -21,9 +21,9 @@ const Testimonials = () => {
       clientName: 'Khistie'
     },
     {
-      image: 'acuario-spa/message1',
+      image: 'acuario-spa/message3',
       alt: 'Testimonio de WhatsApp de Karina',
-      clientName: 'Karina'
+      clientName: 'Karelis'
     }
   ]
 

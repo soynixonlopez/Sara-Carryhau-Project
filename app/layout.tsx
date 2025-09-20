@@ -25,6 +25,13 @@ export const metadata: Metadata = {
   creator: 'Sara Carryhau',
   publisher: 'Sara Carryhau Estética',
   robots: 'index, follow',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: 'any' }
+    ],
+    apple: '/favicon.svg',
+  },
   openGraph: {
     type: 'website',
     locale: 'es_ES',
