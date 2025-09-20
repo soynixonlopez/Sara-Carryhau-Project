@@ -9,3 +9,6 @@ node_modules/.cache/
 .env.development.local
 .env.test.local
 .env.production.local
+# Ignore build artifacts that might cause issues
+.next/
+.git/
