@@ -4,7 +4,6 @@ import { motion, useInView } from 'framer-motion'
 import { useRef } from 'react'
 import { 
   Clock, 
-  Phone, 
   Mail, 
   MapPin, 
   Calendar,
@@ -17,15 +16,6 @@ const ContactInfo = () => {
   const isInView = useInView(ref, { once: true })
 
   const contactDetails = [
-    {
-      icon: Phone,
-      title: 'Teléfono',
-      content: '+507 6160 1403',
-      description: 'Llamadas y consultas telefónicas',
-      action: 'tel:+50761601403',
-      color: 'text-primary-600',
-      bgColor: 'bg-primary-100'
-    },
     {
       icon: Mail,
       title: 'Email',

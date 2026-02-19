@@ -3,7 +3,7 @@
 import { motion, useInView } from 'framer-motion'
 import { useRef } from 'react'
 import Link from 'next/link'
-import { Calendar, Phone, MessageCircle, ArrowRight } from 'lucide-react'
+import { Calendar, MessageCircle, ArrowRight } from 'lucide-react'
 
 const CTA = () => {
   const ref = useRef(null)
@@ -16,14 +16,6 @@ const CTA = () => {
       description: 'Agenda tu cita de forma rápida y sencilla',
       href: '/reservar',
       color: 'bg-primary-600 hover:bg-primary-700',
-      textColor: 'text-white'
-    },
-    {
-      icon: Phone,
-      title: 'Llamar Ahora',
-      description: 'Habla directamente con Sara',
-      href: 'tel:+50761601403',
-      color: 'bg-secondary-600 hover:bg-secondary-700',
       textColor: 'text-white'
     },
     {
@@ -66,7 +58,7 @@ const CTA = () => {
           </motion.p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           {ctaOptions.map((option, index) => (
             <motion.div
               key={option.title}

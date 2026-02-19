@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { MessageCircle, Phone, Mail, MapPin } from 'lucide-react'
+import { MessageCircle, Mail, MapPin } from 'lucide-react'
 
 const ContactHero = () => {
   return (
@@ -55,21 +55,8 @@ const ContactHero = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.6 }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto"
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto"
           >
-            <a 
-              href="tel:+50761601403"
-              className="flex items-center justify-center space-x-3 bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 group"
-            >
-              <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center group-hover:bg-primary-200 transition-colors">
-                <Phone className="w-6 h-6 text-primary-600" />
-              </div>
-              <div className="text-left">
-                <div className="font-semibold text-gray-900">Llamar</div>
-                <div className="text-sm text-gray-600">+507 6160 1403</div>
-              </div>
-            </a>
-
             <a 
               href="https://wa.me/50761601403"
               className="flex items-center justify-center space-x-3 bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 group"

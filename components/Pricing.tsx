@@ -199,9 +199,6 @@ const Pricing = () => {
               <Link href="/contacto" className="btn-primary">
                 Solicitar Presupuesto
               </Link>
-              <Link href="tel:+34123456789" className="btn-outline">
-                Llamar Ahora
-              </Link>
             </div>
           </div>
         </motion.div>

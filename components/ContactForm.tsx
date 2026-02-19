@@ -41,12 +41,30 @@ const ContactForm = () => {
     setSubmitStatus('idle')
 
     try {
-      // Simular envío de formulario (sin integración real)
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      console.log('Datos del formulario de contacto:', data)
-      setSubmitStatus('success')
-      reset()
+      const res = await fetch('https://formsubmit.co/ajax/sarathc@gmail.com', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          _subject: data.subject,
+          _replyto: data.email,
+          phone: data.phone || '',
+          message: data.message
+        })
+      })
+
+      const result = await res.json()
+
+      if (result.success === 'true' || result.success === true || res.ok) {
+        setSubmitStatus('success')
+        reset()
+      } else {
+        setSubmitStatus('error')
+      }
     } catch (error) {
       console.error('Error enviando formulario:', error)
       setSubmitStatus('error')
@@ -248,12 +266,6 @@ const ContactForm = () => {
             ¿Prefieres contactarnos directamente?
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <a 
-              href="tel:+50761601403" 
-              className="btn-outline text-center"
-            >
-              Llamar Ahora
-            </a>
             <a 
               href="https://wa.me/50761601403" 
               className="btn-primary text-center"

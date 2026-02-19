@@ -136,10 +136,7 @@ const FAQ = () => {
               Estaremos encantadas de ayudarte.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="tel:+50761601403" className="btn-primary">
-                Llamar Ahora
-              </a>
-              <a href="https://wa.me/50761601403" className="btn-outline">
+              <a href="https://wa.me/50761601403" className="btn-primary">
                 WhatsApp
               </a>
             </div>
