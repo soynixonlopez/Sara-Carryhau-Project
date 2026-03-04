@@ -24,7 +24,6 @@ const nextConfig = {
       },
     ]
   },
-  // No usar output: 'standalone' en Vercel; causa "Cannot find module 'styled-jsx/package.json'" en las funciones serverless
   trailingSlash: false,
 }
 
