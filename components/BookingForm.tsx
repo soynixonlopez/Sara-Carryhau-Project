@@ -54,6 +54,7 @@ const BookingForm = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [submitError, setSubmitError] = useState<string>('')
   const [occupiedHours, setOccupiedHours] = useState<string[]>([])
   const [loadingHours, setLoadingHours] = useState(false)
 
@@ -119,6 +120,7 @@ const BookingForm = () => {
     if (!selectedDate || !selectedTime) return
     setIsSubmitting(true)
     setSubmitStatus('idle')
+    setSubmitError('')
 
     const fechaStr = format(selectedDate, "EEEE d 'de' MMMM, yyyy", { locale: es })
     const fechaApi = format(selectedDate, 'yyyy-MM-dd')
@@ -140,9 +142,13 @@ const BookingForm = () => {
         }),
       })
 
+      const errBody = await resApi.json().catch(() => ({}))
+      const apiMessage = typeof errBody?.error === 'string' ? errBody.error : ''
+
       if (!resApi.ok) {
-        const err = await resApi.json().catch(() => ({}))
-        throw new Error(err.error || 'Error al guardar la reserva')
+        setSubmitError(apiMessage || 'Error al guardar la reserva')
+        setSubmitStatus('error')
+        return
       }
 
       fetch(`https://formsubmit.co/ajax/${siteConfig.contactEmail}`, {
@@ -169,6 +175,9 @@ const BookingForm = () => {
       reset()
     } catch (error) {
       console.error('Error enviando reserva:', error)
+      setSubmitError(
+        error instanceof Error ? error.message : 'No pudimos procesar tu reserva. Inténtalo de nuevo o escríbenos por WhatsApp.'
+      )
       setSubmitStatus('error')
     } finally {
       setIsSubmitting(false)
@@ -251,7 +260,7 @@ const BookingForm = () => {
               <div>
                 <h3 className="font-semibold text-red-800">Error al enviar</h3>
                 <p className="text-sm text-red-700 mt-1">
-                  No pudimos procesar tu reserva. Inténtalo de nuevo o escríbenos por WhatsApp.
+                  {submitError || 'No pudimos procesar tu reserva. Inténtalo de nuevo o escríbenos por WhatsApp.'}
                 </p>
               </div>
             </motion.div>

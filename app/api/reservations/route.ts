@@ -1,6 +1,6 @@
 import 'server-only'
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import {
   RESERVATION_SERVICES,
@@ -37,18 +37,31 @@ const reservationBodySchema = z.object({
     .refine((h) => (RESERVATION_HORARIOS as readonly string[]).includes(h), 'Hora no válida'),
 })
 
-function getSupabaseAdmin() {
+/** No lanzar: devolver null si faltan env para evitar 405 en Vercel cuando falla la inicialización */
+function getSupabaseAdmin(): SupabaseClient | null {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!serviceRoleKey || !supabaseUrl) {
-    throw new Error(
-      'Faltan SUPABASE_SERVICE_ROLE_KEY o NEXT_PUBLIC_SUPABASE_URL en variables de entorno.'
-    )
+    console.error('API reservations: faltan SUPABASE_SERVICE_ROLE_KEY o NEXT_PUBLIC_SUPABASE_URL')
+    return null
   }
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+  })
+}
+
+const MSG_UNAVAILABLE = 'Servicio no disponible. Inténtalo más tarde o escríbenos por WhatsApp.'
+
+/** CORS preflight: evita 405 cuando el navegador envía OPTIONS antes del POST */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      Allow: 'GET, POST, OPTIONS',
+      'Access-Control-Max-Age': '86400',
     },
   })
 }
@@ -71,6 +84,9 @@ export async function GET(request: Request) {
     }
 
     const supabase = getSupabaseAdmin()
+    if (!supabase) {
+      return NextResponse.json({ error: MSG_UNAVAILABLE }, { status: 503 })
+    }
     const { data, error } = await supabase
       .from('reservations')
       .select('hora, status')
@@ -129,6 +145,9 @@ export async function POST(request: Request) {
     } = parseResult.data
 
     const supabase = getSupabaseAdmin()
+    if (!supabase) {
+      return NextResponse.json({ error: MSG_UNAVAILABLE }, { status: 503 })
+    }
 
     const { data: existing, error: existingError } = await supabase
       .from('reservations')
