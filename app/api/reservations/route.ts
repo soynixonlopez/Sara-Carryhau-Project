@@ -55,13 +55,24 @@ function getSupabaseAdmin(): SupabaseClient | null {
 
 const MSG_UNAVAILABLE = 'Servicio no disponible. Inténtalo más tarde o escríbenos por WhatsApp.'
 
+function corsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get('origin')
+  const allowOrigin = origin || process.env.NEXT_PUBLIC_SITE_URL || '*'
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+  }
+}
+
 /** CORS preflight: evita 405 cuando el navegador envía OPTIONS antes del POST */
-export async function OPTIONS() {
+export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
     status: 204,
     headers: {
       Allow: 'GET, POST, OPTIONS',
-      'Access-Control-Max-Age': '86400',
+      ...corsHeaders(request),
     },
   })
 }
@@ -73,19 +84,19 @@ export async function GET(request: Request) {
     if (!fecha) {
       return NextResponse.json(
         { error: 'Falta parámetro fecha (yyyy-MM-dd).' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders(request) }
       )
     }
     if (!FECHA_REGEX.test(fecha)) {
       return NextResponse.json(
         { error: 'Formato de fecha inválido. Use yyyy-MM-dd.' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders(request) }
       )
     }
 
     const supabase = getSupabaseAdmin()
     if (!supabase) {
-      return NextResponse.json({ error: MSG_UNAVAILABLE }, { status: 503 })
+      return NextResponse.json({ error: MSG_UNAVAILABLE }, { status: 503, headers: corsHeaders(request) })
     }
     const { data, error } = await supabase
       .from('reservations')
@@ -97,17 +108,17 @@ export async function GET(request: Request) {
       console.error('API reservations GET Supabase:', error.message)
       return NextResponse.json(
         { error: 'Error al consultar disponibilidad' },
-        { status: 500 }
+        { status: 500, headers: corsHeaders(request) }
       )
     }
 
     const occupiedHours = (data || []).map((r) => r.hora).filter(Boolean)
-    return NextResponse.json({ occupiedHours })
+    return NextResponse.json({ occupiedHours }, { headers: corsHeaders(request) })
   } catch (e) {
     console.error('API reservations GET:', e)
     return NextResponse.json(
       { error: 'Error al consultar disponibilidad' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders(request) }
     )
   }
 }
@@ -120,7 +131,7 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json(
         { error: 'Body JSON inválido o vacío.' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders(request) }
       )
     }
 
@@ -129,7 +140,7 @@ export async function POST(request: Request) {
       const first = parseResult.error.flatten().fieldErrors
       const msg =
         Object.values(first).flat().find(Boolean) || 'Datos de reserva inválidos.'
-      return NextResponse.json({ error: String(msg) }, { status: 400 })
+      return NextResponse.json({ error: String(msg) }, { status: 400, headers: corsHeaders(request) })
     }
 
     const {
@@ -146,7 +157,7 @@ export async function POST(request: Request) {
 
     const supabase = getSupabaseAdmin()
     if (!supabase) {
-      return NextResponse.json({ error: MSG_UNAVAILABLE }, { status: 503 })
+      return NextResponse.json({ error: MSG_UNAVAILABLE }, { status: 503, headers: corsHeaders(request) })
     }
 
     const { data: existing, error: existingError } = await supabase
@@ -161,14 +172,14 @@ export async function POST(request: Request) {
       console.error('API reservations POST check existing:', existingError.message)
       return NextResponse.json(
         { error: 'Error al verificar disponibilidad. Inténtalo de nuevo.' },
-        { status: 500 }
+        { status: 500, headers: corsHeaders(request) }
       )
     }
 
     if (existing && existing.length > 0) {
       return NextResponse.json(
         { error: 'Esta hora ya está ocupada. Por favor elige otra.' },
-        { status: 409 }
+        { status: 409, headers: corsHeaders(request) }
       )
     }
 
@@ -194,16 +205,16 @@ export async function POST(request: Request) {
       console.error('Supabase insert error:', error)
       return NextResponse.json(
         { error: 'Error al crear la reserva. Inténtalo de nuevo.' },
-        { status: 500 }
+        { status: 500, headers: corsHeaders(request) }
       )
     }
 
-    return NextResponse.json({ success: true, id: data?.id })
+    return NextResponse.json({ success: true, id: data?.id }, { headers: corsHeaders(request) })
   } catch (e) {
     console.error('API reservations POST:', e)
     return NextResponse.json(
       { error: 'Error al crear la reserva' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders(request) }
     )
   }
 }

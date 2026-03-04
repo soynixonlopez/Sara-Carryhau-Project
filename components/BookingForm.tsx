@@ -94,8 +94,13 @@ const BookingForm = () => {
       setLoadingHours(true)
       try {
         const fechaApi = format(selectedDate, 'yyyy-MM-dd')
-        const res = await fetch(`/api/reservations?fecha=${fechaApi}`)
-        if (!res.ok) throw new Error('No se pudo consultar disponibilidad')
+        const url = typeof window !== 'undefined' ? `${window.location.origin}/api/reservations?fecha=${encodeURIComponent(fechaApi)}` : `/api/reservations?fecha=${fechaApi}`
+        const res = await fetch(url)
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          const msg = typeof errData?.error === 'string' ? errData.error : 'No se pudo consultar disponibilidad'
+          throw new Error(msg)
+        }
         const result = await res.json()
         const occupied = Array.isArray(result.occupiedHours) ? result.occupiedHours : []
         setOccupiedHours(occupied)
@@ -126,7 +131,8 @@ const BookingForm = () => {
     const fechaApi = format(selectedDate, 'yyyy-MM-dd')
 
     try {
-      const resApi = await fetch('/api/reservations', {
+      const apiUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/reservations` : '/api/reservations'
+      const resApi = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -142,8 +148,15 @@ const BookingForm = () => {
         }),
       })
 
-      const errBody = await resApi.json().catch(() => ({}))
-      const apiMessage = typeof errBody?.error === 'string' ? errBody.error : ''
+      let apiMessage = ''
+      try {
+        const errBody = await resApi.json()
+        apiMessage = typeof errBody?.error === 'string' ? errBody.error : ''
+      } catch {
+        // Respuesta no JSON (ej. error de servidor en producción)
+        if (resApi.status === 503) apiMessage = 'Servicio no disponible. Inténtalo más tarde o escríbenos por WhatsApp.'
+        else if (resApi.status >= 500) apiMessage = 'Error del servidor. Inténtalo en unos minutos o escríbenos por WhatsApp.'
+      }
 
       if (!resApi.ok) {
         setSubmitError(apiMessage || 'Error al guardar la reserva')
