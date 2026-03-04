@@ -24,19 +24,7 @@ const nextConfig = {
       },
     ]
   },
-  experimental: {
-    outputFileTracingRoot: undefined,
-    outputFileTracingExcludes: {
-      '*': [
-        '**/node_modules/**/*',
-        '**/.git/**/*',
-        '**/.next/**/*',
-        '**/scripts/**/*',
-        '**/cloudinary-images.json',
-      ],
-    },
-  },
-  output: 'standalone',
+  // No usar output: 'standalone' en Vercel; causa "Cannot find module 'styled-jsx/package.json'" en las funciones serverless
   trailingSlash: false,
 }
 
