@@ -295,7 +295,7 @@ const BookingForm = () => {
                     ¿Qué día?
                   </h2>
                   <p className="text-gray-500 text-sm mt-0.5">
-                    Lun–Vie 9:00–17:00
+                    Lun–Vie 9:00–20:00
                   </p>
                 </div>
 
@@ -387,34 +387,34 @@ const BookingForm = () => {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 max-w-lg mx-auto">
-                  {HORARIOS.map((h) => {
-                    const isOccupied = occupiedHours.includes(h)
-                    return (
-                      <button
-                        key={h}
-                        type="button"
-                        onClick={() => !isOccupied && setSelectedTime(h)}
-                        disabled={isOccupied}
-                        className={`py-3 px-4 rounded-xl font-medium transition-all ${
-                          isOccupied
-                            ? 'bg-red-100 text-red-700 border border-red-200 cursor-not-allowed'
-                            : selectedTime === h
-                            ? 'bg-primary-600 text-white shadow-lg shadow-primary-200'
-                            : 'bg-gray-100 text-gray-700 hover:bg-primary-50 hover:text-primary-700'
-                        }`}
-                      >
-                        <span className="block">{h}</span>
-                        {isOccupied && <span className="block text-[10px] mt-0.5">Ocupado</span>}
-                      </button>
-                    )
-                  })}
-                </div>
-                <p className="text-center text-xs text-gray-500">
-                  {loadingHours
-                    ? 'Consultando disponibilidad...'
-                    : 'Las horas en rojo ya están ocupadas.'}
+                <p className="text-center text-xs text-gray-500 mb-2">
+                  {loadingHours ? 'Consultando disponibilidad...' : 'Verde: disponible · Rojo: ocupado'}
                 </p>
+                <div className="max-h-[280px] sm:max-h-[320px] overflow-y-auto rounded-xl border border-gray-200 bg-gray-50/50 p-2 sm:p-3">
+                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                    {HORARIOS.map((h) => {
+                      const isOccupied = occupiedHours.includes(h)
+                      return (
+                        <button
+                          key={h}
+                          type="button"
+                          onClick={() => !isOccupied && setSelectedTime(h)}
+                          disabled={isOccupied}
+                          className={`py-2.5 px-2 rounded-lg text-sm font-medium transition-all min-w-0 ${
+                            isOccupied
+                              ? 'bg-red-100 text-red-700 border border-red-200 cursor-not-allowed'
+                              : selectedTime === h
+                              ? 'bg-primary-600 text-white shadow-md'
+                              : 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-200 hover:border-green-300'
+                          }`}
+                        >
+                          <span className="block truncate">{h}</span>
+                          {isOccupied && <span className="block text-[10px] mt-0.5 opacity-90">Ocupado</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
 
                 <div className="flex justify-center gap-3 pt-4">
                   <button

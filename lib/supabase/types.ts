@@ -21,6 +21,8 @@ export interface Reservation {
 export interface Attendant {
   id: string
   nombre: string
+  apellido?: string | null
+  user_id?: string | null
 }
 
 export interface ReservationInsert {

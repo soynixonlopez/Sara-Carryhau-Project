@@ -8,7 +8,7 @@ const BookingHero = () => {
           Reserva tu cita
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Lun–Vie · 9:00 a 17:00
+          Lun–Vie · 9:00 a 20:00
         </p>
       </div>
     </section>

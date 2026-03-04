@@ -5,6 +5,7 @@ import { useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Clock, Calendar } from 'lucide-react'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, isPast } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { RESERVATION_HORARIOS } from '@/lib/constants'
 
 const BookingCalendar = () => {
   const ref = useRef(null)
@@ -12,10 +13,7 @@ const BookingCalendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
 
-  // Horarios disponibles (ejemplo)
-  const availableSlots = [
-    '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'
-  ]
+  const availableSlots = [...RESERVATION_HORARIOS]
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)

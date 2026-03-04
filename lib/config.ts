@@ -26,4 +26,7 @@ export const siteConfig = {
     saturday: (env.NEXT_PUBLIC_SCHEDULE_SAT as string) || 'Sáb: 9:00-15:00',
     sunday: (env.NEXT_PUBLIC_SCHEDULE_SUN as string) || 'Dom: Cerrado',
   },
+
+  /** Email del administrador principal: Sara Carrillo (esteticista encargada), ej. sarythc@gmail.com. Solo esta cuenta puede crear/eliminar asistentes y ver Configuración. */
+  adminEmail: (env.NEXT_PUBLIC_ADMIN_EMAIL as string) || '',
 } as const
