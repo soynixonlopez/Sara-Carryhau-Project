@@ -10,6 +10,8 @@
     "upload-images": "node scripts/upload-to-cloudinary.js"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.98.0",
     "@types/node": "^20.10.5",
     "@types/react": "^18.2.45",
     "@types/react-calendar": "^4.1.0",

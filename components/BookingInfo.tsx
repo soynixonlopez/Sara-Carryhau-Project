@@ -41,17 +41,17 @@ const BookingInfo = () => {
   ]
 
   return (
-    <div ref={ref} className="space-y-8">
+    <div ref={ref} className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
 
       {/* Policies */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
         transition={{ delay: 0.3, duration: 0.6 }}
-        className="bg-white rounded-2xl shadow-lg p-6"
+        className="bg-gray-50 rounded-xl border border-gray-100 p-4 sm:p-5 h-full"
       >
-        <h3 className="text-xl font-serif font-bold text-gray-900 mb-6">
-          Políticas y Términos
+        <h3 className="text-base font-serif font-bold text-gray-900 mb-4">
+          Políticas y términos
         </h3>
         
         <div className="space-y-4">
@@ -61,13 +61,13 @@ const BookingInfo = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
               transition={{ delay: 0.4 + index * 0.1, duration: 0.6 }}
-              className="flex items-start space-x-3"
+              className="flex items-start space-x-2.5"
             >
-              <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                <policy.icon className="w-4 h-4 text-primary-600" />
+              <div className="w-7 h-7 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <policy.icon className="w-3.5 h-3.5 text-primary-600" />
               </div>
-              <div>
-                <h4 className="font-semibold text-gray-900 text-sm mb-1">
+              <div className="min-w-0">
+                <h4 className="font-semibold text-gray-900 text-sm mb-0.5">
                   {policy.title}
                 </h4>
                 <p className="text-xs text-gray-600 leading-relaxed">
@@ -84,10 +84,10 @@ const BookingInfo = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
         transition={{ delay: 0.6, duration: 0.6 }}
-        className="bg-gradient-to-br from-primary-50 to-secondary-50 rounded-2xl p-6"
+        className="bg-gray-50 rounded-xl border border-gray-100 p-4 sm:p-5 h-full"
       >
-        <h3 className="text-xl font-serif font-bold text-gray-900 mb-6">
-          Consejos para tu Cita
+        <h3 className="text-base font-serif font-bold text-gray-900 mb-4">
+          Consejos para tu cita
         </h3>
         
         <div className="space-y-3">
@@ -97,9 +97,9 @@ const BookingInfo = () => {
               initial={{ opacity: 0, x: -10 }}
               animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -10 }}
               transition={{ delay: 0.7 + index * 0.05, duration: 0.4 }}
-              className="flex items-start space-x-3"
+              className="flex items-start space-x-2.5"
             >
-              <CheckCircle className="w-4 h-4 text-primary-600 flex-shrink-0 mt-0.5" />
+              <CheckCircle className="w-3.5 h-3.5 text-primary-600 flex-shrink-0 mt-0.5" />
               <span className="text-sm text-gray-700">{tip}</span>
             </motion.div>
           ))}

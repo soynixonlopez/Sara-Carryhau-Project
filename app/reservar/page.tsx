@@ -12,14 +12,12 @@ export default function ReservarPage() {
   return (
     <div className="min-h-screen">
       <BookingHero />
-      <div className="container-custom section-padding">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
-          <div className="lg:col-span-3">
-            <BookingForm />
-          </div>
-          <div className="lg:col-span-1">
-            <BookingInfo />
-          </div>
+      <div className="container-custom px-4 sm:px-6 pt-2 pb-12 sm:pt-4">
+        <div className="w-full max-w-2xl mx-auto">
+          <BookingForm />
+        </div>
+        <div className="w-full max-w-2xl mx-auto mt-8">
+          <BookingInfo />
         </div>
       </div>
     </div>

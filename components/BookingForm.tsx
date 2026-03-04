@@ -1,13 +1,14 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import {
   Calendar,
   Clock,
   User,
-  Sparkles,
+  Phone,
+  Mail,
   MessageSquare,
   CheckCircle,
   AlertCircle,
@@ -33,6 +34,8 @@ import { es } from 'date-fns/locale'
 interface BookingFormData {
   nombre: string
   apellido: string
+  telefono: string
+  email?: string
   edad: string
   servicio: string
   comentario: string
@@ -69,6 +72,8 @@ const BookingForm = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [occupiedHours, setOccupiedHours] = useState<string[]>([])
+  const [loadingHours, setLoadingHours] = useState(false)
 
   const {
     register,
@@ -89,47 +94,97 @@ const BookingForm = () => {
   const handleDateSelect = (date: Date) => {
     if (isDateAvailable(date) && !isPast(startOfDay(date))) {
       setSelectedDate(date)
+      setSelectedTime(null)
     }
   }
 
   const canGoToStep2 = !!selectedDate
   const canGoToStep3 = canGoToStep2 && !!selectedTime
 
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      if (!selectedDate) {
+        setOccupiedHours([])
+        return
+      }
+
+      setLoadingHours(true)
+      try {
+        const fechaApi = format(selectedDate, 'yyyy-MM-dd')
+        const res = await fetch(`/api/reservations?fecha=${fechaApi}`)
+        if (!res.ok) throw new Error('No se pudo consultar disponibilidad')
+        const result = await res.json()
+        const occupied = Array.isArray(result.occupiedHours) ? result.occupiedHours : []
+        setOccupiedHours(occupied)
+      } catch (error) {
+        console.error('Error consultando disponibilidad:', error)
+        setOccupiedHours([])
+      } finally {
+        setLoadingHours(false)
+      }
+    }
+
+    fetchAvailability()
+  }, [selectedDate])
+
+  useEffect(() => {
+    if (selectedTime && occupiedHours.includes(selectedTime)) {
+      setSelectedTime(null)
+    }
+  }, [occupiedHours, selectedTime])
+
   const onSubmit = async (data: BookingFormData) => {
     if (!selectedDate || !selectedTime) return
     setIsSubmitting(true)
     setSubmitStatus('idle')
 
+    const fechaStr = format(selectedDate, "EEEE d 'de' MMMM, yyyy", { locale: es })
+    const fechaApi = format(selectedDate, 'yyyy-MM-dd')
+
     try {
-      const fechaStr = format(selectedDate, "EEEE d 'de' MMMM, yyyy", { locale: es })
-      const res = await fetch('https://formsubmit.co/ajax/sarathc@gmail.com', {
+      const resApi = await fetch('/api/reservations', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: data.nombre,
+          apellido: data.apellido,
+          telefono: data.telefono,
+          email: data.email || null,
+          edad: data.edad,
+          servicio: data.servicio,
+          comentario: data.comentario || null,
+          fecha: fechaApi,
+          hora: selectedTime,
+        }),
+      })
+
+      if (!resApi.ok) {
+        const err = await resApi.json().catch(() => ({}))
+        throw new Error(err.error || 'Error al guardar la reserva')
+      }
+
+      fetch('https://formsubmit.co/ajax/sarathc@gmail.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           _subject: `Nueva reserva: ${data.nombre} ${data.apellido} - ${fechaStr} ${selectedTime}`,
           nombre: data.nombre,
           apellido: data.apellido,
+          telefono: data.telefono,
+          email: data.email || '(No indicado)',
           edad: data.edad,
           servicio: data.servicio,
           fecha: fechaStr,
           hora: selectedTime,
           comentario: data.comentario || '(Sin comentarios)',
         }),
-      })
+      }).catch(() => {})
 
-      const result = await res.json()
-      if (result.success === 'true' || result.success === true || res.ok) {
-        setSubmitStatus('success')
-        setStep(1)
-        setSelectedDate(null)
-        setSelectedTime(null)
-        reset()
-      } else {
-        setSubmitStatus('error')
-      }
+      setSubmitStatus('success')
+      setStep(1)
+      setSelectedDate(null)
+      setSelectedTime(null)
+      reset()
     } catch (error) {
       console.error('Error enviando reserva:', error)
       setSubmitStatus('error')
@@ -153,10 +208,10 @@ const BookingForm = () => {
         className="bg-white/90 backdrop-blur rounded-3xl shadow-xl border border-primary-100/50 overflow-hidden"
       >
         {/* Indicador de pasos */}
-        <div className="bg-gradient-to-r from-primary-50 via-white to-secondary-50 px-6 py-5 border-b border-gray-100">
-          <div className="flex items-center justify-between max-w-md mx-auto">
+        <div className="bg-gradient-to-r from-primary-50/80 via-white to-secondary-50/80 px-4 sm:px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-center gap-3 sm:gap-6 max-w-lg mx-auto">
             {steps.map((s, i) => (
-              <div key={s.num} className="flex items-center flex-1">
+              <div key={s.num} className="flex items-center">
                 <div className="flex flex-col items-center">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
@@ -167,12 +222,12 @@ const BookingForm = () => {
                   >
                     <s.icon className="w-5 h-5" />
                   </div>
-                  <span className="mt-1.5 text-xs font-medium text-gray-600 hidden sm:block">
+                  <span className="mt-1.5 text-xs font-medium text-gray-600 text-center">
                     {s.label}
                   </span>
                 </div>
                 {i < steps.length - 1 && (
-                  <div className="flex-1 h-0.5 mx-1 bg-gray-200 rounded">
+                  <div className="w-8 sm:w-12 h-0.5 bg-gray-200 rounded flex-shrink-0">
                     <motion.div
                       className="h-full bg-primary-400 rounded"
                       initial={{ width: 0 }}
@@ -229,14 +284,14 @@ const BookingForm = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.3 }}
-                className="space-y-6"
+                className="space-y-5"
               >
                 <div className="text-center">
-                  <h2 className="text-2xl font-serif font-bold text-gray-900">
-                    ¿Qué día te viene bien?
+                  <h2 className="text-xl sm:text-2xl font-serif font-bold text-gray-900">
+                    ¿Qué día?
                   </h2>
-                  <p className="text-gray-600 mt-1">
-                    Lun–Vie · Horario de atención 9:00 a.m. – 5:00 p.m.
+                  <p className="text-gray-500 text-sm mt-0.5">
+                    Lun–Vie 9:00–17:00
                   </p>
                 </div>
 
@@ -320,30 +375,42 @@ const BookingForm = () => {
                 className="space-y-6"
               >
                 <div className="text-center">
-                  <h2 className="text-2xl font-serif font-bold text-gray-900">
-                    Elige tu horario
+                  <h2 className="text-xl sm:text-2xl font-serif font-bold text-gray-900">
+                    ¿Qué hora?
                   </h2>
-                  <p className="text-gray-600 mt-1">
-                    {selectedDate && format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}
+                  <p className="text-gray-500 text-sm mt-0.5">
+                    {selectedDate && format(selectedDate, "EEE d MMM", { locale: es })}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 max-w-lg mx-auto">
-                  {HORARIOS.map((h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => setSelectedTime(h)}
-                      className={`py-3 px-4 rounded-xl font-medium transition-all ${
-                        selectedTime === h
-                          ? 'bg-primary-600 text-white shadow-lg shadow-primary-200'
-                          : 'bg-gray-100 text-gray-700 hover:bg-primary-50 hover:text-primary-700'
-                      }`}
-                    >
-                      {h}
-                    </button>
-                  ))}
+                  {HORARIOS.map((h) => {
+                    const isOccupied = occupiedHours.includes(h)
+                    return (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => !isOccupied && setSelectedTime(h)}
+                        disabled={isOccupied}
+                        className={`py-3 px-4 rounded-xl font-medium transition-all ${
+                          isOccupied
+                            ? 'bg-red-100 text-red-700 border border-red-200 cursor-not-allowed'
+                            : selectedTime === h
+                            ? 'bg-primary-600 text-white shadow-lg shadow-primary-200'
+                            : 'bg-gray-100 text-gray-700 hover:bg-primary-50 hover:text-primary-700'
+                        }`}
+                      >
+                        <span className="block">{h}</span>
+                        {isOccupied && <span className="block text-[10px] mt-0.5">Ocupado</span>}
+                      </button>
+                    )
+                  })}
                 </div>
+                <p className="text-center text-xs text-gray-500">
+                  {loadingHours
+                    ? 'Consultando disponibilidad...'
+                    : 'Las horas en rojo ya están ocupadas.'}
+                </p>
 
                 <div className="flex justify-center gap-3 pt-4">
                   <button
@@ -376,19 +443,12 @@ const BookingForm = () => {
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className="text-center mb-8">
-                  <div className="inline-flex items-center gap-2 bg-primary-50 text-primary-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
-                    <Sparkles className="w-4 h-4" />
-                    Casi listo
-                  </div>
-                  <h2 className="text-2xl font-serif font-bold text-gray-900">
-                    Cuéntanos un poco de ti
+                <div className="text-center mb-6">
+                  <h2 className="text-xl sm:text-2xl font-serif font-bold text-gray-900">
+                    Tus datos
                   </h2>
-                  <p className="text-gray-600 mt-1">
-                    Reserva para el{' '}
-                    <span className="font-semibold text-gray-900">
-                      {selectedDate && format(selectedDate, "d/M/yyyy", { locale: es })} a las {selectedTime}
-                    </span>
+                  <p className="text-gray-500 text-sm mt-0.5">
+                    {selectedDate && format(selectedDate, "d/M/yyyy", { locale: es })} · {selectedTime}
                   </p>
                 </div>
 
@@ -422,6 +482,49 @@ const BookingForm = () => {
                         <p className="mt-1 text-sm text-red-600">{errors.apellido.message}</p>
                       )}
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      <Phone className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                      Celular *
+                    </label>
+                    <input
+                      type="tel"
+                      {...register('telefono', {
+                        required: 'Requerido',
+                        pattern: {
+                          value: /^[0-9+\-\s()]{7,}$/,
+                          message: 'Celular inválido',
+                        },
+                      })}
+                      placeholder="+507 6000-0000"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                    />
+                    {errors.telefono && (
+                      <p className="mt-1 text-sm text-red-600">{errors.telefono.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      <Mail className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                      Correo (opcional)
+                    </label>
+                    <input
+                      type="email"
+                      {...register('email', {
+                        pattern: {
+                          value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                          message: 'Email inválido',
+                        },
+                      })}
+                      placeholder="tu@email.com"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                    />
+                    {errors.email && (
+                      <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

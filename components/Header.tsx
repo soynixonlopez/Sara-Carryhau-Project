@@ -65,7 +65,7 @@ const Header = () => {
                   alt="Sara Carryhau Logo"
                   width={160}
                   height={96}
-                  className="w-full h-full object-contain"
+                  className="w-full h-auto object-contain"
                   quality="auto"
                   format="auto"
                 />
@@ -134,7 +134,7 @@ const Header = () => {
                       alt="Sara Carryhau Logo"
                       width={128}
                       height={80}
-                      className="w-full h-full object-contain"
+                      className="w-full h-auto object-contain"
                       quality="auto"
                       format="auto"
                     />
