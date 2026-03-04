@@ -3,6 +3,7 @@
 import { motion, useInView } from 'framer-motion'
 import { useRef } from 'react'
 import { MapPin, Navigation, Car } from 'lucide-react'
+import { siteConfig } from '@/lib/config'
 
 const ContactMap = () => {
   const ref = useRef(null)
@@ -12,7 +13,7 @@ const ContactMap = () => {
     {
       icon: MapPin,
       title: 'Dirección',
-      content: 'Mini Mall El Cangrejo, local 03\nPretty Supply\nPanamá',
+      content: `${siteConfig.address}\n${siteConfig.addressDescription}`,
       color: 'text-primary-600',
       bgColor: 'bg-primary-100'
     },
@@ -68,7 +69,7 @@ const ContactMap = () => {
                 allowFullScreen
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                title="Ubicación de Sara Carryhau Estética - Mini Mall El Cangrejo, Pretty Supply"
+                title={`Ubicación de Sara Carryhau Estética - ${siteConfig.address}, ${siteConfig.addressDescription}`}
                 className="rounded-2xl"
               ></iframe>
             </div>

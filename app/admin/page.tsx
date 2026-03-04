@@ -19,6 +19,10 @@ import {
   X,
   CheckCircle,
   XCircle,
+  AlertCircle,
+  RotateCcw,
+  CalendarPlus,
+  Pencil,
   User,
   Phone,
   Clock,
@@ -26,9 +30,14 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
+  FileSpreadsheet,
+  FileText,
+  Trash2,
+  Info,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Reservation, Attendant, ReservationStatus } from '@/lib/supabase/types'
+import * as XLSX from 'xlsx'
 
 const HORARIOS = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']
 
@@ -42,8 +51,23 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | 'todos'>('todos')
   const [monthFilter, setMonthFilter] = useState(() => format(new Date(), 'yyyy-MM'))
   const [detailReservation, setDetailReservation] = useState<Reservation | null>(null)
+  const [editFecha, setEditFecha] = useState('')
+  const [editHora, setEditHora] = useState('')
   const [updating, setUpdating] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
   const todayDate = format(new Date(), 'yyyy-MM-dd')
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (detailReservation) {
+      setEditFecha(detailReservation.fecha)
+      setEditHora(detailReservation.hora)
+    }
+  }, [detailReservation])
 
   useEffect(() => {
     const supabase = createClient()
@@ -148,13 +172,23 @@ export default function AdminPage() {
 
   const updateReservation = async (
     id: string,
-    updates: { status?: ReservationStatus; attendant_id?: string | null }
+    updates: { status?: ReservationStatus; attendant_id?: string | null; fecha?: string; hora?: string }
   ) => {
+    setUpdateError(null)
     setUpdating(true)
     const supabase = createClient()
     const { error } = await supabase.from('reservations').update(updates).eq('id', id)
     setUpdating(false)
-    if (!error) setDetailReservation(null)
+    if (error) {
+      setUpdateError(error.message || 'No se pudo actualizar la reserva. Inténtalo de nuevo.')
+      return
+    }
+    setReservations((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
+    )
+    if (detailReservation?.id === id) {
+      setDetailReservation((prev) => (prev ? { ...prev, ...updates } : null))
+    }
   }
 
   const goPrevDay = () => {
@@ -175,17 +209,150 @@ export default function AdminPage() {
     return null
   }
 
+  const handleCancelarReserva = async (r: Reservation, e?: React.MouseEvent, skipConfirm?: boolean) => {
+    e?.stopPropagation()
+    if (!skipConfirm && !window.confirm(`¿Cancelar la reserva de ${r.nombre} ${r.apellido}? El horario quedará libre. Podrás verla en "Canceladas" y reactivarla después.`)) return
+    setUpdateError(null)
+    setUpdating(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('reservations').update({ status: 'cancelado' }).eq('id', r.id)
+    setUpdating(false)
+    if (error) {
+      setUpdateError(error.message)
+      return
+    }
+    setReservations((prev) => prev.map((x) => (x.id === r.id ? { ...x, status: 'cancelado' as const } : x)))
+    if (detailReservation?.id === r.id) setDetailReservation((prev) => (prev ? { ...prev, status: 'cancelado' } : null))
+  }
+
+  const handleReactivarReserva = async (r: Reservation, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    setUpdateError(null)
+    setUpdating(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('reservations').update({ status: 'pendiente' }).eq('id', r.id)
+    setUpdating(false)
+    if (error) {
+      setUpdateError(error.message)
+      return
+    }
+    setReservations((prev) => prev.map((x) => (x.id === r.id ? { ...x, status: 'pendiente' as const } : x)))
+    if (detailReservation?.id === r.id) setDetailReservation((prev) => (prev ? { ...prev, status: 'pendiente' } : null))
+  }
+
+  const handleEliminarReserva = async (r: Reservation, e?: React.MouseEvent, skipConfirm?: boolean) => {
+    e?.stopPropagation()
+    if (!skipConfirm && !window.confirm(`¿Eliminar del sistema la reserva de ${r.nombre} ${r.apellido}? Se borrará para siempre y no podrás recuperarla. Esta acción no se puede deshacer.`)) return
+    setUpdateError(null)
+    setUpdating(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('reservations').delete().eq('id', r.id)
+    setUpdating(false)
+    if (error) {
+      setUpdateError(error.message)
+      return
+    }
+    setReservations((prev) => prev.filter((x) => x.id !== r.id))
+    setDetailReservation(null)
+  }
+
+  const escapeCsvCell = (value: string | null | undefined): string => {
+    if (value == null) return ''
+    const s = String(value).replace(/"/g, '""')
+    if (/[",\n\r]/.test(s)) return `"${s}"`
+    return s
+  }
+
+  const exportCsv = () => {
+    const headers = [
+      'Fecha',
+      'Hora',
+      'Nombre',
+      'Apellido',
+      'Teléfono',
+      'Email',
+      'Edad',
+      'Servicio',
+      'Estado',
+      'Quién atiende',
+      'Comentario',
+      'Creado',
+    ]
+    const rows = filteredList.map((r) => [
+      r.fecha,
+      r.hora,
+      r.nombre,
+      r.apellido,
+      r.telefono ?? '',
+      r.email ?? '',
+      r.edad,
+      r.servicio,
+      r.status,
+      getAttendantName(r) ?? '',
+      r.comentario ?? '',
+      format(parseISO(r.created_at), "d/M/yyyy HH:mm", { locale: es }),
+    ])
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.map(escapeCsvCell).join(',')),
+    ].join('\r\n')
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `reservas_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportExcel = () => {
+    const headers = [
+      'Fecha',
+      'Hora',
+      'Nombre',
+      'Apellido',
+      'Teléfono',
+      'Email',
+      'Edad',
+      'Servicio',
+      'Estado',
+      'Quién atiende',
+      'Comentario',
+      'Creado',
+    ]
+    const rows = filteredList.map((r) => [
+      r.fecha,
+      r.hora,
+      r.nombre,
+      r.apellido,
+      r.telefono ?? '',
+      r.email ?? '',
+      r.edad,
+      r.servicio,
+      r.status,
+      getAttendantName(r) ?? '',
+      r.comentario ?? '',
+      format(parseISO(r.created_at), "d/M/yyyy HH:mm", { locale: es }),
+    ])
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+    const colWidths = [{ wch: 12 }, { wch: 6 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 22 }, { wch: 8 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 30 }, { wch: 16 }]
+    ws['!cols'] = colWidths
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Reservas')
+    XLSX.writeFile(wb, `reservas_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`)
+  }
+
   return (
-    <div className="min-h-[100dvh] bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20 safe-area-padding">
-        <div className="container-custom py-3 sm:py-4 flex flex-wrap items-center justify-between gap-3">
+    <div className="min-h-[100dvh] bg-gray-100">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-5 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-serif font-bold text-gray-900 truncate">Panel de reservas</h1>
-            <p className="text-xs sm:text-sm text-gray-600">Sara Carryhau Estética</p>
+            <h1 className="text-xl sm:text-2xl font-serif font-bold text-gray-900 truncate">Panel de reservas</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Sara Carryhau Estética</p>
           </div>
           <button
             onClick={handleLogout}
-            className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] text-gray-700 hover:bg-gray-100 rounded-xl transition-colors touch-manipulation shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors touch-manipulation shrink-0 border border-gray-200"
           >
             <LogOut className="w-4 h-4" />
             <span className="hidden sm:inline">Cerrar sesión</span>
@@ -193,54 +360,102 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main className="container-custom py-4 sm:py-8 px-3 sm:px-4">
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className="bg-white rounded-xl border border-gray-100 p-3 sm:p-4">
-            <p className="text-xs text-gray-500">Reservas hoy</p>
-            <p className="text-xl sm:text-2xl font-bold text-gray-900">{dashboardSummary.hoy}</p>
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-10">
+        {updateError && !detailReservation && (
+          <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Error</p>
+              <p className="text-sm text-red-700 mt-0.5">{updateError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setUpdateError(null)}
+              className="p-1 rounded-lg hover:bg-red-100 text-red-600"
+              aria-label="Cerrar"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 p-3 sm:p-4">
-            <p className="text-xs text-gray-500">Pendientes</p>
-            <p className="text-xl sm:text-2xl font-bold text-amber-600">{dashboardSummary.pendientes}</p>
+        )}
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-6 sm:mb-8">
+          <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-4 sm:p-5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Reservas hoy</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{dashboardSummary.hoy}</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 p-3 sm:p-4">
-            <p className="text-xs text-gray-500">Atendidos</p>
-            <p className="text-xl sm:text-2xl font-bold text-green-600">{dashboardSummary.atendidos}</p>
+          <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-4 sm:p-5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pendientes</p>
+            <p className="text-2xl sm:text-3xl font-bold text-amber-600 mt-1">{dashboardSummary.pendientes}</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 p-3 sm:p-4">
-            <p className="text-xs text-gray-500">Total</p>
-            <p className="text-xl sm:text-2xl font-bold text-primary-700">{dashboardSummary.total}</p>
+          <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-4 sm:p-5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Atendidos</p>
+            <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-1">{dashboardSummary.atendidos}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-4 sm:p-5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total</p>
+            <p className="text-2xl sm:text-3xl font-bold text-primary-600 mt-1">{dashboardSummary.total}</p>
           </div>
         </section>
 
-        <div className="flex flex-col sm:flex-row flex-wrap gap-2 mb-4 sm:mb-6">
+        <nav className="flex flex-col sm:flex-row flex-wrap gap-3 mb-6" aria-label="Vista del panel">
           <button
             onClick={() => setView('list')}
-            className={`flex-1 min-w-0 inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl transition-colors touch-manipulation ${
-              view === 'list' ? 'bg-primary-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            className={`flex-1 min-w-0 inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[48px] rounded-xl font-medium transition-all touch-manipulation border ${
+              view === 'list'
+                ? 'bg-primary-600 text-white border-primary-600 shadow-md shadow-primary-200'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200'
             }`}
           >
-            <List className="w-4 h-4 shrink-0" />
-            <span className="text-sm sm:text-base">Listado</span>
+            <List className="w-5 h-5 shrink-0" />
+            <span className="text-sm sm:text-base">Listado de reservas</span>
           </button>
           <button
             onClick={() => setView('day')}
-            className={`flex-1 min-w-0 inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl transition-colors touch-manipulation ${
-              view === 'day' ? 'bg-primary-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            className={`flex-1 min-w-0 inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[48px] rounded-xl font-medium transition-all touch-manipulation border ${
+              view === 'day'
+                ? 'bg-primary-600 text-white border-primary-600 shadow-md shadow-primary-200'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200'
             }`}
           >
-            <Calendar className="w-4 h-4 shrink-0" />
-            <span className="text-sm sm:text-base">Vista por día</span>
+            <Calendar className="w-5 h-5 shrink-0" />
+            <span className="text-sm sm:text-base">Agenda por día</span>
           </button>
-        </div>
+        </nav>
 
         {view === 'list' && (
-          <section className="bg-white rounded-2xl shadow border border-gray-100 p-4 sm:p-6 mb-6 sm:mb-8">
-            <div className="mb-4">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900">Listado de reservas</h2>
-              <p className="text-xs sm:text-sm text-gray-500">Busca por nombre, celular o servicio y toca una reserva para ver detalles.</p>
+          <section className="bg-white rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden mb-8">
+            <div className="p-5 sm:p-6 lg:p-8 border-b border-gray-100">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Listado de reservas</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">Busca por nombre, teléfono o servicio. Haz clic en una fila para ver o editar.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={exportCsv}
+                    disabled={filteredList.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                    title="Descargar CSV"
+                  >
+                    <FileText className="w-4 h-4" />
+                    CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportExcel}
+                    disabled={filteredList.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                    title="Descargar Excel"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Excel
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-4">
+            <div className="p-5 sm:p-6 lg:p-8 pt-0">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
               <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <input
@@ -259,7 +474,9 @@ export default function AdminPage() {
                 <option value="todos">Todos los estados</option>
                 <option value="pendiente">Pendiente</option>
                 <option value="atendido">Atendido</option>
-                <option value="cancelado">Cancelado</option>
+                <option value="cancelado" suppressHydrationWarning>
+                  {mounted ? 'Canceladas' : 'Cancelado'}
+                </option>
               </select>
               <input
                 type="month"
@@ -272,49 +489,83 @@ export default function AdminPage() {
             {/* Lista en cards para móvil */}
             <div className="block md:hidden space-y-2">
               {filteredList.map((r) => (
-                <button
+                <div
                   key={r.id}
-                  type="button"
-                  onClick={() => setDetailReservation(r)}
-                  className="w-full text-left p-4 rounded-xl border border-gray-200 hover:bg-primary-50/50 active:bg-primary-100/50 transition-colors touch-manipulation"
+                  className="flex items-center gap-2 p-4 rounded-xl border border-gray-200 hover:bg-primary-50/50 transition-colors"
                 >
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900 truncate">{r.nombre} {r.apellido}</p>
-                      <p className="text-xs text-gray-500">{r.telefono || 'Sin celular'}</p>
-                      <p className="text-sm text-gray-600">{r.servicio}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {format(parseISO(r.fecha), 'd/M/yyyy', { locale: es })} · {r.hora}
-                      </p>
+                  <button
+                    type="button"
+                    onClick={() => setDetailReservation(r)}
+                    className="flex-1 min-w-0 text-left"
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900 truncate">{r.nombre} {r.apellido}</p>
+                        <p className="text-xs text-gray-500">{r.telefono || 'Sin celular'}</p>
+                        <p className="text-sm text-gray-600">{r.servicio}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {format(parseISO(r.fecha), 'd/M/yyyy', { locale: es })} · {r.hora}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          r.status === 'pendiente'
+                            ? 'bg-amber-100 text-amber-800'
+                            : r.status === 'atendido'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        {r.status}
+                      </span>
                     </div>
-                    <span
-                      className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        r.status === 'pendiente'
-                          ? 'bg-amber-100 text-amber-800'
-                          : r.status === 'atendido'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-200 text-gray-700'
-                      }`}
+                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {r.status !== 'cancelado' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelarReserva(r)}
+                        className="p-2.5 rounded-xl text-gray-400 hover:text-amber-600 hover:bg-amber-50"
+                        title="Cancelar"
+                      >
+                        <XCircle className="w-5 h-5" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleReactivarReserva(r)}
+                        className="p-2.5 rounded-xl text-gray-400 hover:text-green-600 hover:bg-green-50"
+                        title="Reactivar"
+                      >
+                        <RotateCcw className="w-5 h-5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleEliminarReserva(r)}
+                      className="p-2.5 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50"
+                      title="Eliminar del sistema"
                     >
-                      {r.status}
-                    </span>
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
 
             {/* Tabla para tablet y desktop */}
-            <div className="hidden md:block overflow-x-auto -mx-4 sm:mx-0">
+            <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-100">
               <table className="w-full text-sm min-w-[600px]">
                 <thead>
-                  <tr className="border-b border-gray-200 text-left text-gray-600">
-                    <th className="pb-2 pr-2">Fecha</th>
-                    <th className="pb-2 pr-2">Hora</th>
-                    <th className="pb-2 pr-2">Cliente</th>
-                    <th className="pb-2 pr-2">Celular</th>
-                    <th className="pb-2 pr-2">Servicio</th>
-                    <th className="pb-2 pr-2">Estado</th>
-                    <th className="pb-2 pr-2">Atiende</th>
+                  <tr className="border-b border-gray-200 bg-gray-50/80 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="py-3.5 px-4">Fecha</th>
+                    <th className="py-3.5 px-4">Hora</th>
+                    <th className="py-3.5 px-4">Cliente</th>
+                    <th className="py-3.5 px-4">Celular</th>
+                    <th className="py-3.5 px-4">Servicio</th>
+                    <th className="py-3.5 px-4">Estado</th>
+                    <th className="py-3.5 px-4">Atiende</th>
+                    <th className="py-3.5 px-4 w-20 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -324,16 +575,16 @@ export default function AdminPage() {
                       onClick={() => setDetailReservation(r)}
                       className="border-b border-gray-100 hover:bg-primary-50/50 cursor-pointer"
                     >
-                      <td className="py-3 pr-2">{format(parseISO(r.fecha), 'd/M/yyyy', { locale: es })}</td>
-                      <td className="py-3 pr-2">{r.hora}</td>
-                      <td className="py-3 pr-2">
+                      <td className="py-3.5 px-4 text-gray-900">{format(parseISO(r.fecha), 'd/M/yyyy', { locale: es })}</td>
+                      <td className="py-3.5 px-4 text-gray-700">{r.hora}</td>
+                      <td className="py-3.5 px-4 font-medium text-gray-900">
                         {r.nombre} {r.apellido}
                       </td>
-                      <td className="py-3 pr-2">{r.telefono || '—'}</td>
-                      <td className="py-3 pr-2">{r.servicio}</td>
-                      <td className="py-3 pr-2">
+                      <td className="py-3.5 px-4 text-gray-700">{r.telefono || '—'}</td>
+                      <td className="py-3.5 px-4 text-gray-700">{r.servicio}</td>
+                      <td className="py-3.5 px-4">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${
                             r.status === 'pendiente'
                               ? 'bg-amber-100 text-amber-800'
                               : r.status === 'atendido'
@@ -344,7 +595,38 @@ export default function AdminPage() {
                           {r.status}
                         </span>
                       </td>
-                      <td className="py-3 pr-2">{getAttendantName(r) || '—'}</td>
+                      <td className="py-3.5 px-4 text-gray-700">{getAttendantName(r) || '—'}</td>
+                      <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          {r.status !== 'cancelado' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelarReserva(r)}
+                              className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                              title="Cancelar reserva (queda en lista como cancelada)"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleReactivarReserva(r)}
+                              className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                              title="Reactivar reserva"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleEliminarReserva(r)}
+                            className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            title="Eliminar del sistema (borrado definitivo)"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -352,87 +634,133 @@ export default function AdminPage() {
             </div>
 
             {filteredList.length === 0 && (
-              <p className="py-8 text-center text-gray-500 text-sm sm:text-base">No hay reservas con los filtros actuales.</p>
+              <p className="py-10 text-center text-gray-500 text-sm sm:text-base">No hay reservas con los filtros actuales.</p>
             )}
+            </div>
           </section>
         )}
 
         {view === 'day' && (
-          <section className="bg-white rounded-2xl shadow border border-gray-100 p-4 sm:p-6 mb-6 sm:mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
-              <div>
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900">Agenda del día</h2>
-                <p className="text-xs sm:text-sm text-gray-500">Rojo = ocupado, verde = disponible, azul = atendido.</p>
-              </div>
-              <div className="flex items-center justify-between sm:justify-end gap-2">
-                <button
-                  onClick={goPrevDay}
-                  className="p-2.5 min-h-[44px] min-w-[44px] rounded-full hover:bg-gray-100 text-gray-600 touch-manipulation flex items-center justify-center"
-                  aria-label="Día anterior"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <span className="flex-1 min-w-0 text-center font-medium text-gray-900 capitalize text-sm sm:text-base px-1">
-                  {format(parseISO(selectedDate), "EEE d 'de' MMM", { locale: es })}
-                </span>
-                <button
-                  onClick={goNextDay}
-                  className="p-2.5 min-h-[44px] min-w-[44px] rounded-full hover:bg-gray-100 text-gray-600 touch-manipulation flex items-center justify-center"
-                  aria-label="Día siguiente"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-              <div className="rounded-xl bg-red-50 border border-red-100 px-3 py-2">
-                <p className="text-[11px] text-red-600">Pendientes</p>
-                <p className="text-lg font-semibold text-red-700">{daySummary.pendientes}</p>
-              </div>
-              <div className="rounded-xl bg-blue-50 border border-blue-100 px-3 py-2">
-                <p className="text-[11px] text-blue-600">Atendidos</p>
-                <p className="text-lg font-semibold text-blue-700">{daySummary.atendidos}</p>
-              </div>
-              <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
-                <p className="text-[11px] text-amber-600">Ocupados</p>
-                <p className="text-lg font-semibold text-amber-700">{daySummary.ocupados}</p>
-              </div>
-              <div className="rounded-xl bg-green-50 border border-green-100 px-3 py-2">
-                <p className="text-[11px] text-green-600">Disponibles</p>
-                <p className="text-lg font-semibold text-green-700">{daySummary.disponibles}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2 sm:gap-3">
-              {HORARIOS.map((hora) => {
-                const res = slotsWithReservations[hora]
-                const isBooked = !!res && res.status === 'pendiente'
-                const isAttended = !!res && res.status === 'atendido'
-                return (
+          <section className="bg-white rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden mb-8">
+            {/* Cabecera clara: fecha y navegación */}
+            <div className="p-5 sm:p-6 lg:p-8 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Agenda del día</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Cada fila es un horario. Toca una cita para ver detalles o eliminarla y liberar el horario.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 p-1 shadow-sm">
                   <button
-                    key={hora}
-                    type="button"
-                    onClick={() => res && setDetailReservation(res)}
-                    className={`p-3 sm:p-4 min-h-[64px] sm:min-h-[72px] rounded-xl text-center transition-all touch-manipulation ${
-                      isBooked
-                        ? 'bg-red-100 border-2 border-red-300 text-red-800 font-semibold'
-                        : isAttended
-                        ? 'bg-blue-100 border-2 border-blue-300 text-blue-800'
-                        : 'bg-green-100 border-2 border-green-300 text-green-800'
-                    }`}
+                    onClick={goPrevDay}
+                    className="p-2.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+                    aria-label="Día anterior"
                   >
-                    <span className="block text-sm sm:text-lg font-medium">{hora}</span>
-                    {res ? (
-                      <span className="block text-xs mt-0.5 sm:mt-1 truncate px-0.5">
-                        {res.nombre} {res.apellido}
-                      </span>
-                    ) : (
-                      <span className="block text-xs mt-0.5 sm:mt-1 opacity-80">Disponible</span>
-                    )}
+                    <ChevronLeft className="w-5 h-5" />
                   </button>
-                )
-              })}
+                  <time className="min-w-[140px] text-center font-semibold text-gray-900 capitalize text-base">
+                    {format(parseISO(selectedDate), "EEEE d 'de' MMMM", { locale: es })}
+                  </time>
+                  <button
+                    onClick={goNextDay}
+                    className="p-2.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+                    aria-label="Día siguiente"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Resumen del día en lenguaje claro */}
+            <div className="p-5 sm:p-6 lg:p-8 pb-0">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Resumen de este día</p>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="rounded-xl bg-amber-50 border border-amber-200/80 px-4 py-3">
+                  <p className="text-xs font-medium text-amber-700">Por atender</p>
+                  <p className="text-2xl font-bold text-amber-800 mt-0.5">{daySummary.pendientes}</p>
+                  <p className="text-[11px] text-amber-600 mt-0.5">Citas pendientes</p>
+                </div>
+                <div className="rounded-xl bg-blue-50 border border-blue-200/80 px-4 py-3">
+                  <p className="text-xs font-medium text-blue-700">Atendidas</p>
+                  <p className="text-2xl font-bold text-blue-800 mt-0.5">{daySummary.atendidos}</p>
+                  <p className="text-[11px] text-blue-600 mt-0.5">Ya realizadas</p>
+                </div>
+                <div className="rounded-xl bg-red-50 border border-red-200/80 px-4 py-3">
+                  <p className="text-xs font-medium text-red-700">Horas ocupadas</p>
+                  <p className="text-2xl font-bold text-red-800 mt-0.5">{daySummary.ocupados}</p>
+                  <p className="text-[11px] text-red-600 mt-0.5">Con reserva</p>
+                </div>
+                <div className="rounded-xl bg-green-50 border border-green-200/80 px-4 py-3">
+                  <p className="text-xs font-medium text-green-700">Horas libres</p>
+                  <p className="text-2xl font-bold text-green-800 mt-0.5">{daySummary.disponibles}</p>
+                  <p className="text-[11px] text-green-600 mt-0.5">Disponibles</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de horarios: una fila por hora, más legible */}
+            <div className="p-5 sm:p-6 lg:p-8">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Horario 9:00 – 17:00</p>
+              <div className="space-y-2">
+                {HORARIOS.map((hora) => {
+                  const res = slotsWithReservations[hora]
+                  const isBooked = !!res && res.status === 'pendiente'
+                  const isAttended = !!res && res.status === 'atendido'
+                  return (
+                    <div
+                      key={hora}
+                      className={`flex items-center gap-3 rounded-xl border-2 p-3 sm:p-4 transition-colors ${
+                        isBooked
+                          ? 'bg-amber-50 border-amber-200 text-amber-900'
+                          : isAttended
+                          ? 'bg-blue-50 border-blue-200 text-blue-900'
+                          : 'bg-green-50 border-green-200 text-green-800'
+                      }`}
+                    >
+                      <span className="w-14 sm:w-16 shrink-0 font-semibold text-lg">{hora}</span>
+                      <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                        {res ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setDetailReservation(res)}
+                              className="flex-1 min-w-0 text-left flex items-center gap-2"
+                            >
+                              <Info className="w-4 h-4 shrink-0 text-gray-500" />
+                              <span className="font-medium truncate">{res.nombre} {res.apellido}</span>
+                              <span className="text-sm opacity-90 hidden sm:inline">— {res.servicio}</span>
+                            </button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleCancelarReserva(res)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/80 hover:bg-amber-100 text-gray-600 hover:text-amber-700 border border-gray-200/80 text-xs font-medium transition-colors"
+                                title="Cancelar (ver en lista canceladas)"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Cancelar</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleEliminarReserva(res)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/80 hover:bg-red-100 text-gray-600 hover:text-red-700 border border-gray-200/80 text-xs font-medium transition-colors"
+                                title="Eliminar del sistema"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Eliminar</span>
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-sm font-medium opacity-90">Sin reserva — horario libre</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </section>
         )}
@@ -440,8 +768,8 @@ export default function AdminPage() {
         {/* Modal detalle */}
         {detailReservation && (
           <div
-            className="fixed inset-0 z-30 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 overflow-y-auto"
-            onClick={() => !updating && setDetailReservation(null)}
+            className="fixed inset-0 z-30 flex items-end sm:items-center justify-center p-0 sm:p-6 lg:p-8 bg-black/50 overflow-y-auto"
+            onClick={() => !updating && (setDetailReservation(null), setUpdateError(null))}
           >
             <div
               className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-lg w-full max-h-[92vh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 mt-auto sm:mt-0"
@@ -450,12 +778,19 @@ export default function AdminPage() {
               <div className="flex justify-between items-start gap-2 mb-4 sticky top-0 bg-white pb-2 border-b border-gray-100">
                 <h3 className="text-lg sm:text-xl font-serif font-bold text-gray-900">Detalle de la reserva</h3>
                 <button
-                  onClick={() => !updating && setDetailReservation(null)}
+                  onClick={() => !updating && (setDetailReservation(null), setUpdateError(null))}
                   className="p-2.5 min-h-[44px] min-w-[44px] rounded-full hover:bg-gray-100 text-gray-600 touch-manipulation flex items-center justify-center shrink-0"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
+              {updateError && (
+                <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-800">{updateError}</p>
+                </div>
+              )}
 
               <div className="space-y-3 text-sm mb-6">
                 <div className="flex items-center gap-2">
@@ -495,39 +830,80 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">Quién atiende</label>
-                <select
-                  value={detailReservation.attendant_id || ''}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    updateReservation(detailReservation.id, { attendant_id: v || null })
-                    setDetailReservation({ ...detailReservation, attendant_id: v || null })
-                  }}
-                  disabled={updating}
-                  className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-xl text-base touch-manipulation"
-                >
-                  <option value="">Sin asignar</option>
-                  {attendants.map((a) => (
-                    <option key={a.id} value={a.id}>{a.nombre}</option>
-                  ))}
-                </select>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quién atiende</label>
+                  <select
+                    value={detailReservation.attendant_id || ''}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      updateReservation(detailReservation.id, { attendant_id: v || null })
+                      setDetailReservation({ ...detailReservation, attendant_id: v || null })
+                    }}
+                    disabled={updating}
+                    className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-xl text-base touch-manipulation"
+                  >
+                    <option value="">Sin asignar</option>
+                    {attendants.map((a) => (
+                      <option key={a.id} value={a.id}>{a.nombre}</option>
+                    ))}
+                  </select>
+                </div>
 
-                <div className="flex flex-col sm:flex-row flex-wrap gap-2 pt-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
+                    <Pencil className="w-4 h-4" />
+                    Editar fecha y hora
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      type="date"
+                      value={editFecha}
+                      onChange={(e) => setEditFecha(e.target.value)}
+                      disabled={updating}
+                      className="flex-1 min-w-[140px] px-3 py-2.5 border border-gray-300 rounded-xl text-sm"
+                    />
+                    <select
+                      value={editHora}
+                      onChange={(e) => setEditHora(e.target.value)}
+                      disabled={updating}
+                      className="px-3 py-2.5 border border-gray-300 rounded-xl text-sm min-w-[100px]"
+                    >
+                      {HORARIOS.map((h) => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (editFecha && editHora) {
+                          updateReservation(detailReservation.id, { fecha: editFecha, hora: editHora })
+                        }
+                      }}
+                      disabled={updating || !editFecha || !editHora}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50 text-sm font-medium"
+                    >
+                      <CalendarPlus className="w-4 h-4" />
+                      Guardar cambios
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-200 pt-4 space-y-2">
                   {detailReservation.status === 'pendiente' && (
                     <>
                       <button
                         onClick={() => updateReservation(detailReservation.id, { status: 'atendido' })}
                         disabled={updating}
-                        className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 touch-manipulation"
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 touch-manipulation"
                       >
                         <CheckCircle className="w-4 h-4 shrink-0" />
                         Marcar atendido
                       </button>
                       <button
-                        onClick={() => updateReservation(detailReservation.id, { status: 'cancelado' })}
+                        onClick={() => handleCancelarReserva(detailReservation, undefined, true)}
                         disabled={updating}
-                        className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 touch-manipulation"
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-amber-600 text-white rounded-xl hover:bg-amber-700 disabled:opacity-50 touch-manipulation"
                       >
                         <XCircle className="w-4 h-4 shrink-0" />
                         Cancelar reserva
@@ -536,14 +912,32 @@ export default function AdminPage() {
                   )}
                   {detailReservation.status === 'atendido' && (
                     <button
-                      onClick={() => updateReservation(detailReservation.id, { status: 'cancelado' })}
+                      onClick={() => handleCancelarReserva(detailReservation, undefined, true)}
                       disabled={updating}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-gray-600 text-white rounded-xl hover:bg-gray-700 disabled:opacity-50 touch-manipulation"
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-amber-600 text-white rounded-xl hover:bg-amber-700 disabled:opacity-50 touch-manipulation"
                     >
                       <XCircle className="w-4 h-4 shrink-0" />
-                      Cancelar (liberar hora)
+                      Cancelar reserva
                     </button>
                   )}
+                  {detailReservation.status === 'cancelado' && (
+                    <button
+                      onClick={() => handleReactivarReserva(detailReservation, undefined)}
+                      disabled={updating}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 touch-manipulation"
+                    >
+                      <RotateCcw className="w-4 h-4 shrink-0" />
+                      Reactivar reserva
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleEliminarReserva(detailReservation, undefined, true)}
+                    disabled={updating}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border-2 border-red-300 text-red-600 rounded-xl hover:bg-red-50 disabled:opacity-50 touch-manipulation font-medium"
+                  >
+                    <Trash2 className="w-4 h-4 shrink-0" />
+                    Eliminar del sistema
+                  </button>
                 </div>
               </div>
             </div>

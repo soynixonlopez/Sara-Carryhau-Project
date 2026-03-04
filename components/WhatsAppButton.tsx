@@ -1,12 +1,12 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { siteConfig } from '@/lib/config'
 
 const WhatsAppButton = () => {
-  const phoneNumber = '50761601403' // Número de Sara sin el + y espacios
-  const message = 'Hola Sara, me interesa conocer más sobre tus servicios de estética. ¿Podrías ayudarme?'
-  
-  const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`
+  const message =
+    'Hola Sara, me interesa conocer más sobre tus servicios de estética. ¿Podrías ayudarme?'
+  const whatsappUrl = `https://wa.me/${siteConfig.whatsappNumber}?text=${encodeURIComponent(message)}`
 
   return (
     <motion.div

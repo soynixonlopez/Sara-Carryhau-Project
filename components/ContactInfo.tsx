@@ -1,48 +1,51 @@
 'use client'
 
+import { useState, useEffect, useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
-import { useRef } from 'react'
-import { 
-  Clock, 
-  Mail, 
-  MapPin, 
+import {
+  Clock,
+  Mail,
+  MapPin,
   Calendar,
   Star,
-  Heart
+  Heart,
 } from 'lucide-react'
+import { siteConfig } from '@/lib/config'
 
 const ContactInfo = () => {
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true })
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
   const contactDetails = [
     {
       icon: Mail,
       title: 'Email',
-      content: 'sarathc@gmail.com',
+      content: mounted ? siteConfig.contactEmail : '\u00A0',
       description: 'Consultas detalladas y reservas',
-      action: 'mailto:sarathc@gmail.com',
+      action: mounted ? `mailto:${siteConfig.contactEmail}` : '#',
       color: 'text-secondary-600',
-      bgColor: 'bg-secondary-100'
+      bgColor: 'bg-secondary-100',
     },
     {
       icon: MapPin,
       title: 'Dirección',
-      content: 'Mini Mall Cangrejo, local 03',
-      description: 'Pretty Supply',
+      content: mounted ? siteConfig.address : '\u00A0',
+      description: mounted ? siteConfig.addressDescription : '\u00A0',
       action: '#',
       color: 'text-green-600',
-      bgColor: 'bg-green-100'
+      bgColor: 'bg-green-100',
     },
     {
       icon: Clock,
       title: 'Horarios',
-      content: 'Lun-Vie: 9:00-19:00',
-      description: 'Sáb: 9:00-15:00 | Dom: Cerrado',
+      content: mounted ? siteConfig.schedule.week : '\u00A0',
+      description: mounted ? `${siteConfig.schedule.saturday} | ${siteConfig.schedule.sunday}` : '\u00A0',
       action: '#',
       color: 'text-accent-600',
-      bgColor: 'bg-accent-100'
-    }
+      bgColor: 'bg-accent-100',
+    },
   ]
 
   const quickActions = [
@@ -98,8 +101,8 @@ const ContactInfo = () => {
               </div>
               <div className="flex-1">
                 <h4 className="font-semibold text-gray-900 mb-1">{detail.title}</h4>
-                <p className="text-gray-900 font-medium mb-1">{detail.content}</p>
-                <p className="text-sm text-gray-600">{detail.description}</p>
+                <p className="text-gray-900 font-medium mb-1" suppressHydrationWarning>{detail.content}</p>
+                <p className="text-sm text-gray-600" suppressHydrationWarning>{detail.description}</p>
               </div>
             </motion.a>
           ))}

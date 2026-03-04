@@ -34,7 +34,7 @@ const Hero = () => {
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center lg:text-left mt-32 md:mt-32 lg:mt-48"
+            className="text-center lg:text-left mt-52 sm:mt-60 md:mt-56 lg:mt-60 xl:mt-64"
           >
             <motion.div
               initial={{ opacity: 0, y: 20 }}

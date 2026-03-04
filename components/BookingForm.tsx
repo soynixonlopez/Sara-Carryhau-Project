@@ -30,6 +30,8 @@ import {
   startOfDay,
 } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { RESERVATION_SERVICES, RESERVATION_HORARIOS } from '@/lib/constants'
+import { siteConfig } from '@/lib/config'
 
 interface BookingFormData {
   nombre: string
@@ -41,28 +43,8 @@ interface BookingFormData {
   comentario: string
 }
 
-const SERVICES = [
-  'Faciales',
-  'Depilación con Cera',
-  'Masajes',
-  'Cauterizaciones',
-  'Laminado y Lifting',
-  'Micropigmentación',
-  'Pestañas Pelo a Pelo',
-  'Consulta Personalizada',
-]
-
-const HORARIOS = [
-  '09:00',
-  '10:00',
-  '11:00',
-  '12:00',
-  '13:00',
-  '14:00',
-  '15:00',
-  '16:00',
-  '17:00',
-]
+const SERVICES = [...RESERVATION_SERVICES]
+const HORARIOS = [...RESERVATION_HORARIOS]
 
 const BookingForm = () => {
   const ref = useRef(null)
@@ -163,11 +145,11 @@ const BookingForm = () => {
         throw new Error(err.error || 'Error al guardar la reserva')
       }
 
-      fetch('https://formsubmit.co/ajax/sarathc@gmail.com', {
+      fetch(`https://formsubmit.co/ajax/${siteConfig.contactEmail}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
-          _subject: `Nueva reserva: ${data.nombre} ${data.apellido} - ${fechaStr} ${selectedTime}`,
+          _subject: `Nueva reserva: ${data.nombre} ${data.apellido} - ${fechaStr} ${selectedTime ?? ''}`,
           nombre: data.nombre,
           apellido: data.apellido,
           telefono: data.telefono,
@@ -175,7 +157,7 @@ const BookingForm = () => {
           edad: data.edad,
           servicio: data.servicio,
           fecha: fechaStr,
-          hora: selectedTime,
+          hora: selectedTime ?? '',
           comentario: data.comentario || '(Sin comentarios)',
         }),
       }).catch(() => {})
@@ -448,7 +430,8 @@ const BookingForm = () => {
                     Tus datos
                   </h2>
                   <p className="text-gray-500 text-sm mt-0.5">
-                    {selectedDate && format(selectedDate, "d/M/yyyy", { locale: es })} · {selectedTime}
+                    {selectedDate && format(selectedDate, "d/M/yyyy", { locale: es })}
+                    {selectedTime != null ? ` · ${selectedTime}` : ''}
                   </p>
                 </div>
 

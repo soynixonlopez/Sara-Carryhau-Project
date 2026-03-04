@@ -4,6 +4,7 @@ import { motion, useInView } from 'framer-motion'
 import { useRef } from 'react'
 import Link from 'next/link'
 import { Calendar, MessageCircle, ArrowRight } from 'lucide-react'
+import { siteConfig } from '@/lib/config'
 
 const CTA = () => {
   const ref = useRef(null)
@@ -22,7 +23,7 @@ const CTA = () => {
       icon: MessageCircle,
       title: 'WhatsApp',
       description: 'Consulta rápida por mensaje',
-      href: 'https://wa.me/50761601403',
+      href: `https://wa.me/${siteConfig.whatsappNumber}`,
       color: 'bg-green-600 hover:bg-green-700',
       textColor: 'text-white'
     }

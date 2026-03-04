@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { FileText, Scale, AlertTriangle, CheckCircle, Clock, Phone } from 'lucide-react'
+import { siteConfig } from '@/lib/config'
 
 export const metadata: Metadata = {
   title: 'Términos y Condiciones - Sara Carryhau Estética',
@@ -180,9 +181,9 @@ const TermsAndConditions = () => {
               </p>
               <div className="bg-gray-50 rounded-xl p-6">
                 <div className="space-y-2">
-                  <p className="text-gray-900"><strong>Email:</strong> info@saracarryhau.com</p>
-                  <p className="text-gray-900"><strong>Teléfono:</strong> +507 6160 1403</p>
-                  <p className="text-gray-900"><strong>Dirección:</strong> Mini Mall Cangrejo, local 03, Pretty Supply</p>
+                  <p className="text-gray-900"><strong>Email:</strong> {siteConfig.contactEmail}</p>
+                  <p className="text-gray-900"><strong>Teléfono:</strong> +{siteConfig.whatsappNumber.replace(/\s/g, '')}</p>
+                  <p className="text-gray-900"><strong>Dirección:</strong> {siteConfig.address}, {siteConfig.addressDescription}</p>
                 </div>
               </div>
             </section>

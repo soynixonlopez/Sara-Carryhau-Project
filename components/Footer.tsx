@@ -1,10 +1,15 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Phone, Mail, MapPin, Clock, Facebook, Instagram } from 'lucide-react'
 import { CldImage } from 'next-cloudinary'
+import { siteConfig } from '@/lib/config'
 
 const Footer = () => {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const currentYear = new Date().getFullYear()
 
   const services = [
@@ -121,29 +126,41 @@ const Footer = () => {
               <div className="flex items-start space-x-3">
                 <Phone className="w-5 h-5 text-primary-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-gray-300 text-sm">+507 6160 1403</p>
+                  <p className="text-gray-300 text-sm" suppressHydrationWarning>
+                    {mounted ? `+${siteConfig.whatsappNumber.replace(/\s/g, '')}` : '\u00A0'}
+                  </p>
                   <p className="text-gray-400 text-xs">Llamadas y WhatsApp</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
                 <Mail className="w-5 h-5 text-primary-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-gray-300 text-sm">sarathc@gmail.com</p>
+                  <p className="text-gray-300 text-sm" suppressHydrationWarning>
+                    {mounted ? siteConfig.contactEmail : '\u00A0'}
+                  </p>
                   <p className="text-gray-400 text-xs">Consultas generales</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
                 <MapPin className="w-5 h-5 text-primary-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-gray-300 text-sm">Mini Mall Cangrejo, local 03</p>
-                    <p className="text-gray-400 text-xs">Pretty Supply</p>
-                  </div>
+                <div>
+                  <p className="text-gray-300 text-sm" suppressHydrationWarning>
+                    {mounted ? siteConfig.address : '\u00A0'}
+                  </p>
+                  <p className="text-gray-400 text-xs" suppressHydrationWarning>
+                    {mounted ? siteConfig.addressDescription : '\u00A0'}
+                  </p>
+                </div>
               </div>
               <div className="flex items-start space-x-3">
                 <Clock className="w-5 h-5 text-primary-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-gray-300 text-sm">Lun - Vie: 9:00 - 19:00</p>
-                  <p className="text-gray-400 text-xs">Sáb: 9:00 - 15:00</p>
+                  <p className="text-gray-300 text-sm" suppressHydrationWarning>
+                    {mounted ? siteConfig.schedule.week : '\u00A0'}
+                  </p>
+                  <p className="text-gray-400 text-xs" suppressHydrationWarning>
+                    {mounted ? siteConfig.schedule.saturday : '\u00A0'}
+                  </p>
                 </div>
               </div>
             </div>

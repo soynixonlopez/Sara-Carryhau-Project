@@ -2,8 +2,28 @@
 const nextConfig = {
   images: {
     domains: ['res.cloudinary.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
+      },
+    ],
   },
-  // Completely disable build tracing to prevent micromatch stack overflow
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'X-XSS-Protection', value: '1; mode=block' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ]
+  },
   experimental: {
     outputFileTracingRoot: undefined,
     outputFileTracingExcludes: {
@@ -16,11 +36,8 @@ const nextConfig = {
       ],
     },
   },
-  // Use standalone output with minimal tracing
   output: 'standalone',
   trailingSlash: false,
-  // Simple build ID to avoid complexity
-  generateBuildId: () => 'build-' + Math.random().toString(36).substr(2, 9),
 }
 
 module.exports = nextConfig

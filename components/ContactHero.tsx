@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { MessageCircle, Mail, MapPin } from 'lucide-react'
+import { siteConfig } from '@/lib/config'
 
 const ContactHero = () => {
   return (
@@ -58,7 +59,7 @@ const ContactHero = () => {
             className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto"
           >
             <a 
-              href="https://wa.me/50761601403"
+              href={`https://wa.me/${siteConfig.whatsappNumber}`}
               className="flex items-center justify-center space-x-3 bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 group"
             >
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
@@ -71,7 +72,7 @@ const ContactHero = () => {
             </a>
 
             <a 
-              href="mailto:info@saracarryhau.com"
+              href={`mailto:${siteConfig.contactEmail}`}
               className="flex items-center justify-center space-x-3 bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300 group"
             >
               <div className="w-12 h-12 bg-secondary-100 rounded-full flex items-center justify-center group-hover:bg-secondary-200 transition-colors">

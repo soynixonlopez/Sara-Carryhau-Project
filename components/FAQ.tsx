@@ -3,6 +3,7 @@
 import { motion, AnimatePresence, useInView } from 'framer-motion'
 import { useRef, useState } from 'react'
 import { Plus, Minus } from 'lucide-react'
+import { siteConfig } from '@/lib/config'
 
 const FAQ = () => {
   const ref = useRef(null)
@@ -48,7 +49,7 @@ const FAQ = () => {
     },
     {
       question: '¿Dónde se encuentra el centro?',
-      answer: 'Nuestro centro está ubicado en Mini Mall Cangrejo, local 03, Pretty Supply. Te enviaremos la dirección exacta y las indicaciones de cómo llegar al confirmar tu cita. También tenemos parking disponible para tu comodidad.'
+      answer: `Nuestro centro está ubicado en ${siteConfig.address}, ${siteConfig.addressDescription}. Te enviaremos la dirección exacta y las indicaciones de cómo llegar al confirmar tu cita. También tenemos parking disponible para tu comodidad.`
     }
   ]
 
@@ -136,7 +137,7 @@ const FAQ = () => {
               Estaremos encantadas de ayudarte.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="https://wa.me/50761601403" className="btn-primary">
+              <a href={`https://wa.me/${siteConfig.whatsappNumber}`} className="btn-primary">
                 WhatsApp
               </a>
             </div>

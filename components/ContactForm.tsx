@@ -4,6 +4,7 @@ import { motion, useInView } from 'framer-motion'
 import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Send, CheckCircle, AlertCircle, User, Mail, MessageSquare, Phone } from 'lucide-react'
+import { siteConfig } from '@/lib/config'
 
 interface ContactFormData {
   name: string
@@ -41,7 +42,7 @@ const ContactForm = () => {
     setSubmitStatus('idle')
 
     try {
-      const res = await fetch('https://formsubmit.co/ajax/sarathc@gmail.com', {
+      const res = await fetch(`https://formsubmit.co/ajax/${siteConfig.contactEmail}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,7 +60,7 @@ const ContactForm = () => {
 
       const result = await res.json()
 
-      if (result.success === 'true' || result.success === true || res.ok) {
+      if (res.ok && (result?.success === 'true' || result?.success === true)) {
         setSubmitStatus('success')
         reset()
       } else {
@@ -267,7 +268,7 @@ const ContactForm = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a 
-              href="https://wa.me/50761601403" 
+              href={`https://wa.me/${siteConfig.whatsappNumber}`}
               className="btn-primary text-center"
             >
               WhatsApp
