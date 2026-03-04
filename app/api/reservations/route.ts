@@ -1,4 +1,3 @@
-import 'server-only'
 import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
@@ -7,6 +6,10 @@ import {
   RESERVATION_HORARIOS,
   FECHA_REGEX,
 } from '@/lib/constants'
+
+// Forzar runtime Node.js en Vercel para evitar errores de módulos en serverless
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 const reservationBodySchema = z.object({
   nombre: z.string().trim().min(1, 'Nombre requerido').max(120),
