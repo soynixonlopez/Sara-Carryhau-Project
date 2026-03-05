@@ -31,6 +31,7 @@ import {
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { RESERVATION_SERVICES, RESERVATION_HORARIOS } from '@/lib/constants'
+import type { Attendant } from '@/lib/supabase/types'
 
 export interface AdminBookingFormData {
   nombre: string
@@ -47,9 +48,13 @@ const HORARIOS = [...RESERVATION_HORARIOS]
 
 interface AdminBookingFormProps {
   onSuccess?: () => void
+  /** Si es colaborador, las reservas se crean bajo su nombre (quién atiende). */
+  attendantId?: string | null
+  /** Si es admin, lista de asistentes para elegir quién atiende (incluye a Sara). */
+  attendants?: Attendant[] | null
 }
 
-export default function AdminBookingForm({ onSuccess }: AdminBookingFormProps) {
+export default function AdminBookingForm({ onSuccess, attendantId, attendants }: AdminBookingFormProps) {
   const [step, setStep] = useState(1)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
@@ -59,6 +64,7 @@ export default function AdminBookingForm({ onSuccess }: AdminBookingFormProps) {
   const [submitError, setSubmitError] = useState('')
   const [occupiedHours, setOccupiedHours] = useState<string[]>([])
   const [loadingHours, setLoadingHours] = useState(false)
+  const [selectedAttendantId, setSelectedAttendantId] = useState<string>('')
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<AdminBookingFormData>()
 
@@ -121,6 +127,7 @@ export default function AdminBookingForm({ onSuccess }: AdminBookingFormProps) {
           comentario: data.comentario?.trim() || null,
           fecha: fechaApi,
           hora: selectedTime,
+          attendant_id: attendantId ?? (selectedAttendantId || null),
         }),
       })
       const body = await res.json().catch(() => ({}))
@@ -134,6 +141,7 @@ export default function AdminBookingForm({ onSuccess }: AdminBookingFormProps) {
       setStep(1)
       setSelectedDate(null)
       setSelectedTime(null)
+      setSelectedAttendantId('')
       reset()
       onSuccess?.()
     } catch {
@@ -346,6 +354,28 @@ export default function AdminBookingForm({ onSuccess }: AdminBookingFormProps) {
                   <label className="block text-xs font-medium text-gray-600 mb-1">Comentario (opcional)</label>
                   <textarea {...register('comentario')} rows={2} placeholder="Notas..." className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none" />
                 </div>
+                {attendantId ? (
+                  <p className="text-sm text-primary-700 font-medium rounded-xl bg-primary-50 border border-primary-200 px-3 py-2.5">
+                    La atenderás tú. La reserva aparecerá en tu lista al instante.
+                  </p>
+                ) : attendants && attendants.length > 0 ? (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Quién atiende</label>
+                    <select
+                      value={selectedAttendantId}
+                      onChange={(e) => setSelectedAttendantId(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    >
+                      <option value="">Sin asignar</option>
+                      {attendants.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.nombre}{a.apellido ? ` ${a.apellido}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Elige si lo atiendes tú (Sara) o un asistente. Se verá en la lista al guardar.</p>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap gap-2 pt-2">
                   <button type="button" onClick={() => setStep(2)} className="btn-outline text-sm py-2.5 px-4 flex items-center gap-1.5">
                     <ChevronLeft className="w-4 h-4" /> Atrás

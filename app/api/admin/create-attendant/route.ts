@@ -12,16 +12,14 @@ const bodySchema = z.object({
   apellido: z.string().trim().min(1, 'Apellido requerido').max(120),
   email: z.string().email('Correo inválido'),
   password: z.string().min(6, 'Mínimo 6 caracteres'),
+  role: z.enum(['collaborator', 'administrator']).default('collaborator'),
 })
 
-/** Solo el admin (Sara) puede crear cuentas de asistentes. */
+/** Solo super admin (ADMIN_EMAIL) o administradores (attendant.role === 'administrator') pueden crear asistentes. */
 export async function POST(request: Request) {
   try {
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL
-    if (!adminEmail) {
-      console.error('create-attendant: falta ADMIN_EMAIL o NEXT_PUBLIC_ADMIN_EMAIL')
-      return NextResponse.json({ error: 'Configuración incompleta' }, { status: 503 })
-    }
+    const adminEmailsRaw = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || ''
+    const adminEmails = adminEmailsRaw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
 
     const cookieStore = await cookies()
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -35,18 +33,30 @@ export async function POST(request: Request) {
       },
     })
     const { data: { user } } = await serverClient.auth.getUser()
-    if (!user?.email || user.email.toLowerCase() !== adminEmail.toLowerCase()) {
+    if (!user?.email) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
+    const userEmail = user.email.trim().toLowerCase()
+    const isSuperAdmin = adminEmails.length > 0 && adminEmails.includes(userEmail)
+    if (!isSuperAdmin) {
+      const { data: attendant } = await serverClient
+        .from('attendants')
+        .select('id, role')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (!attendant || attendant.role !== 'administrator') {
+        return NextResponse.json({ error: 'No autorizado. Solo administradores pueden crear asistentes.' }, { status: 403 })
+      }
     }
 
     const body = await request.json()
     const parsed = bodySchema.safeParse(body)
     if (!parsed.success) {
-      const msg = parsed.error.errors.map((e) => e.message).join('. ')
+      const msg = parsed.error.issues.map((e) => e.message).join('. ')
       return NextResponse.json({ error: msg || 'Datos inválidos' }, { status: 400 })
     }
 
-    const { nombre, apellido, email, password } = parsed.data
+    const { nombre, apellido, email, password, role } = parsed.data
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceRoleKey) {
       return NextResponse.json({ error: 'Servicio no disponible' }, { status: 503 })
@@ -71,13 +81,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo crear la cuenta. Inténtalo de nuevo.' }, { status: 500 })
     }
 
-    const fullName = `${nombre.trim()} ${apellido.trim()}`.trim()
     const { error: insertError } = await admin
       .from('attendants')
       .insert({
-        nombre: fullName,
+        nombre: nombre.trim(),
         apellido: apellido.trim(),
+        email: email.trim(),
         user_id: newUser.user.id,
+        role: role || 'collaborator',
       })
 
     if (insertError) {

@@ -5,7 +5,7 @@ import { cookies } from 'next/headers'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-/** Devuelve si el usuario actual es admin (según ADMIN_EMAIL / NEXT_PUBLIC_ADMIN_EMAIL). La comprobación es en servidor para leer env en cada petición. */
+/** Devuelve si el usuario es admin (super admin por email o rol administrador), su rol y attendantId si es asistente. */
 export async function GET() {
   try {
     const cookieStore = await cookies()
@@ -21,7 +21,7 @@ export async function GET() {
     })
     const { data: { user } } = await supabase.auth.getUser()
     if (!user?.email) {
-      return NextResponse.json({ isAdmin: false, email: null })
+      return NextResponse.json({ isAdmin: false, email: null, role: null, attendantId: null })
     }
     const adminRaw = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || ''
     const adminEmails = adminRaw
@@ -29,10 +29,37 @@ export async function GET() {
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean)
     const userEmail = user.email.trim().toLowerCase()
-    const isAdmin = adminEmails.length > 0 && adminEmails.includes(userEmail)
-    return NextResponse.json({ isAdmin, email: user.email })
+    const isSuperAdmin = adminEmails.length > 0 && adminEmails.includes(userEmail)
+    if (isSuperAdmin) {
+      return NextResponse.json({
+        isAdmin: true,
+        email: user.email,
+        role: 'admin' as const,
+        attendantId: null,
+      })
+    }
+    const { data: attendant } = await supabase
+      .from('attendants')
+      .select('id, role')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (!attendant) {
+      return NextResponse.json({
+        isAdmin: false,
+        email: user.email,
+        role: null,
+        attendantId: null,
+      })
+    }
+    const isAdmin = attendant.role === 'administrator'
+    return NextResponse.json({
+      isAdmin,
+      email: user.email,
+      role: attendant.role as 'collaborator' | 'administrator',
+      attendantId: attendant.id,
+    })
   } catch (e) {
     console.error('GET /api/admin/me:', e)
-    return NextResponse.json({ isAdmin: false, email: null }, { status: 500 })
+    return NextResponse.json({ isAdmin: false, email: null, role: null, attendantId: null }, { status: 500 })
   }
 }

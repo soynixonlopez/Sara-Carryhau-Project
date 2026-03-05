@@ -64,9 +64,16 @@ function AttendantsSection({ attendants, onAttendantCreated }: { attendants: Att
   const [apellido, setApellido] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState<'collaborator' | 'administrator'>('collaborator')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingAttendant, setEditingAttendant] = useState<Attendant | null>(null)
+  const [editNombre, setEditNombre] = useState('')
+  const [editApellido, setEditApellido] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,7 +83,7 @@ function AttendantsSection({ attendants, onAttendantCreated }: { attendants: Att
       const res = await fetch('/api/admin/create-attendant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre: nombre.trim(), apellido: apellido.trim(), email: email.trim(), password }),
+        body: JSON.stringify({ nombre: nombre.trim(), apellido: apellido.trim(), email: email.trim(), password, role }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -108,10 +115,56 @@ function AttendantsSection({ attendants, onAttendantCreated }: { attendants: Att
         return
       }
       onAttendantCreated()
+      setEditingAttendant(null)
     } catch {
       setError('Error de conexión')
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const getDisplayNombre = (a: Attendant) => a.nombre.trim().split(/\s+/)[0] || a.nombre
+  const getDisplayApellido = (a: Attendant) => {
+    if (a.apellido && a.apellido.trim()) return a.apellido.trim()
+    const parts = a.nombre.trim().split(/\s+/).slice(1)
+    return parts.length ? parts.join(' ') : '—'
+  }
+
+  const openEdit = (a: Attendant) => {
+    setEditingAttendant(a)
+    setEditNombre(getDisplayNombre(a))
+    setEditApellido(getDisplayApellido(a) === '—' ? '' : getDisplayApellido(a))
+    setEditEmail(a.email ?? '')
+    setEditError(null)
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingAttendant) return
+    setEditError(null)
+    setEditSaving(true)
+    try {
+      const res = await fetch(`/api/admin/attendants/${editingAttendant.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: editNombre.trim(),
+          apellido: editApellido.trim() || null,
+          email: editEmail.trim() || null,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setEditError((data?.error as string) || 'No se pudo guardar')
+        setEditSaving(false)
+        return
+      }
+      onAttendantCreated()
+      setEditingAttendant(null)
+    } catch {
+      setEditError('Error de conexión')
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -141,6 +194,13 @@ function AttendantsSection({ attendants, onAttendantCreated }: { attendants: Att
             <label className="block text-xs font-medium text-gray-600 mb-1">Contraseña</label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm" placeholder="Mínimo 6 caracteres" />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Rol</label>
+            <select value={role} onChange={(e) => setRole(e.target.value as 'collaborator' | 'administrator')} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm">
+              <option value="collaborator">Colaborador (solo dashboard, reservar, por día, perfil; reservas bajo su nombre)</option>
+              <option value="administrator">Administrador (acceso completo: ver todo, crear asistentes, etc.)</option>
+            </select>
+          </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={loading} className="btn-primary text-sm py-2.5 px-5 disabled:opacity-50">
             {loading ? 'Creando...' : 'Crear cuenta'}
@@ -148,30 +208,141 @@ function AttendantsSection({ attendants, onAttendantCreated }: { attendants: Att
         </form>
 
         <h4 className="text-sm font-medium text-gray-700 mb-3">Lista de asistentes</h4>
-        <ul className="space-y-2">
-          {attendants.length === 0 && <p className="text-sm text-gray-500">No hay asistentes registrados.</p>}
-          {attendants.map((a) => (
-            <li key={a.id} className="flex items-center justify-between gap-2 py-2.5 px-3 rounded-xl bg-gray-50 border border-gray-100">
-              <div className="min-w-0 flex-1">
-                <span className="font-medium text-gray-900">{a.nombre}{a.apellido ? ` ${a.apellido}` : ''}</span>
-                {a.user_id ? <span className="ml-2 text-xs text-green-600 font-medium">Con cuenta</span> : <span className="ml-2 text-xs text-gray-400">Sin cuenta</span>}
+        <div className="overflow-x-auto rounded-xl border border-gray-100">
+          <table className="w-full text-sm min-w-[500px]">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50/80 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="py-3 px-4">Nombre</th>
+                <th className="py-3 px-4">Apellido</th>
+                <th className="py-3 px-4">Correo</th>
+                <th className="py-3 px-4">Rol</th>
+                <th className="py-3 px-4 w-24 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {attendants.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-gray-500">No hay asistentes registrados.</td>
+                </tr>
+              )}
+              {attendants.map((a) => (
+                <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50/50">
+                  <td className="py-3 px-4 font-medium text-gray-900">{getDisplayNombre(a)}</td>
+                  <td className="py-3 px-4 text-gray-700">{getDisplayApellido(a)}</td>
+                  <td className="py-3 px-4 text-gray-700">{a.email ?? '—'}</td>
+                  <td className="py-3 px-4">
+                    <span className={`inline-block text-xs font-medium px-1.5 py-0.5 rounded ${a.role === 'administrator' ? 'bg-primary-100 text-primary-800' : 'bg-gray-200 text-gray-700'}`}>
+                      {a.role === 'administrator' ? 'Administrador' : 'Colaborador'}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(a)}
+                        className="p-2 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                        title="Editar nombre y correo"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(a)}
+                        disabled={deletingId === a.id}
+                        className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                        title="Eliminar asistente"
+                      >
+                        {deletingId === a.id ? (
+                          <span className="w-4 h-4 block border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Modal editar asistente */}
+        {editingAttendant && (
+          <div
+            className="fixed inset-0 z-30 flex items-center justify-center p-4 bg-black/50"
+            onClick={() => !editSaving && setEditingAttendant(null)}
+            aria-modal
+            role="dialog"
+            aria-label="Editar asistente"
+          >
+            <div
+              className="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 sm:p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start gap-2 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Editar asistente</h3>
+                <button
+                  type="button"
+                  onClick={() => !editSaving && setEditingAttendant(null)}
+                  className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+                  aria-label="Cerrar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleDelete(a)}
-                disabled={deletingId === a.id}
-                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                title="Eliminar asistente"
-              >
-                {deletingId === a.id ? (
-                  <span className="w-5 h-5 block border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Trash2 className="w-5 h-5" />
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
+                  <input
+                    type="text"
+                    value={editNombre}
+                    onChange={(e) => setEditNombre(e.target.value)}
+                    required
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm"
+                    placeholder="Ej. Marieth"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Apellido</label>
+                  <input
+                    type="text"
+                    value={editApellido}
+                    onChange={(e) => setEditApellido(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm"
+                    placeholder="Ej. Vega"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Correo</label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm"
+                    placeholder="correo@ejemplo.com"
+                  />
+                </div>
+                {editError && <p className="text-sm text-red-600">{editError}</p>}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => !editSaving && setEditingAttendant(null)}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editSaving}
+                    className="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {editSaving ? 'Guardando...' : 'Guardar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   )
@@ -215,7 +386,7 @@ export default function AdminPage() {
 
   const fetchAttendantsList = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase.from('attendants').select('id, nombre, apellido, user_id').order('nombre')
+    const { data } = await supabase.from('attendants').select('id, nombre, apellido, email, user_id, role').order('nombre')
     if (data) setAttendants(data as Attendant[])
   }, [])
 
@@ -234,22 +405,13 @@ export default function AdminPage() {
       }
       try {
         const res = await fetch('/api/admin/me', { credentials: 'include' })
-        const data = res.ok ? await res.json() : { isAdmin: false }
-        if (data.isAdmin) {
-          setIsAdmin(true)
-          setCurrentAttendantId(null)
-          setRoleLoaded(true)
-          return
-        }
+        const data = res.ok ? await res.json() : { isAdmin: false, attendantId: null }
+        setIsAdmin(!!data.isAdmin)
+        setCurrentAttendantId(data.attendantId ?? null)
       } catch {
-        // Si la API falla, no marcar como admin
+        setIsAdmin(false)
+        setCurrentAttendantId(null)
       }
-      const { data: att } = await supabase.from('attendants').select('id').eq('user_id', u.id).maybeSingle()
-      if (att) {
-        setCurrentAttendantId(att.id)
-      }
-      setIsAdmin(false)
-      if (!att) setCurrentAttendantId(null)
       setRoleLoaded(true)
     }
     loadUserAndRole()
@@ -259,7 +421,7 @@ export default function AdminPage() {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, attendants(id, nombre)')
+      .select('*, attendants(id, nombre, apellido)')
       .order('fecha', { ascending: false })
       .order('hora', { ascending: true })
     if (!error && data) setReservations(data as Reservation[])
@@ -365,11 +527,33 @@ export default function AdminPage() {
       setUpdateError(error.message || 'No se pudo actualizar la reserva. Inténtalo de nuevo.')
       return
     }
+    const newAttendants =
+      updates.attendant_id != null
+        ? attendants.find((a) => a.id === updates.attendant_id)
+        : null
+    const attendantsForReservation =
+      newAttendants != null
+        ? { id: newAttendants.id, nombre: newAttendants.nombre, apellido: newAttendants.apellido ?? null }
+        : null
+
     setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
+      prev.map((r) => {
+        if (r.id !== id) return r
+        const next = { ...r, ...updates }
+        if (updates.attendant_id !== undefined) next.attendants = attendantsForReservation
+        return next
+      })
     )
     if (detailReservation?.id === id) {
-      setDetailReservation((prev) => (prev ? { ...prev, ...updates } : null))
+      setDetailReservation((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...updates,
+              attendants: updates.attendant_id !== undefined ? attendantsForReservation : prev.attendants,
+            }
+          : null
+      )
     }
   }
 
@@ -387,7 +571,14 @@ export default function AdminPage() {
 
   const getAttendantName = (r: Reservation) => {
     const att = r.attendants
-    if (att && typeof att === 'object' && 'nombre' in att) return (att as { nombre: string }).nombre
+    if (att && typeof att === 'object' && 'nombre' in att) {
+      const a = att as { nombre: string; apellido?: string | null }
+      const first = a.nombre.trim().split(/\s+/)[0] || a.nombre
+      const last = (a.apellido && a.apellido.trim())
+        ? a.apellido.trim()
+        : a.nombre.trim().split(/\s+/).slice(1).join(' ')
+      return last ? `${first} ${last}` : first
+    }
     return null
   }
 
@@ -524,13 +715,14 @@ export default function AdminPage() {
     XLSX.writeFile(wb, `reservas_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`)
   }
 
-  const navItems: { id: AdminSection; label: string; icon: React.ElementType }[] = [
+  const navItemsAll: { id: AdminSection; label: string; icon: React.ElementType }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'reservar', label: 'Reservar cita', icon: CalendarPlus },
     { id: 'day', label: 'Reservas por día', icon: Calendar },
     { id: 'profile', label: 'Perfil', icon: UserCircle },
     { id: 'attendants', label: 'Asistentes', icon: Users },
   ]
+  const navItems = isAdmin ? navItemsAll : navItemsAll.filter((item) => item.id !== 'attendants')
 
   if (!roleLoaded) {
     return (
@@ -915,7 +1107,11 @@ export default function AdminPage() {
               <p className="text-sm text-gray-500 mt-0.5">Reserva a nombre del cliente. Verde: disponible · Rojo: ocupado. Al guardar, la reserva se verá al instante en el listado y en la agenda.</p>
             </div>
             <div className="p-5 sm:p-6 lg:p-8">
-              <AdminBookingForm onSuccess={() => { fetchReservations(); setSection('dashboard') }} />
+              <AdminBookingForm
+                onSuccess={() => { fetchReservations(); setSection('dashboard') }}
+                attendantId={!isAdmin ? currentAttendantId : undefined}
+                attendants={isAdmin ? attendants : undefined}
+              />
             </div>
           </section>
         )}
@@ -1269,7 +1465,7 @@ export default function AdminPage() {
                   >
                     <option value="">Sin asignar</option>
                     {attendants.map((a) => (
-                      <option key={a.id} value={a.id}>{a.nombre}</option>
+                      <option key={a.id} value={a.id}>{a.nombre}{a.apellido ? ` ${a.apellido}` : ''}</option>
                     ))}
                   </select>
                 </div>

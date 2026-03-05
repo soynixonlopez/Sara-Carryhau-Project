@@ -38,6 +38,7 @@ const reservationBodySchema = z.object({
   hora: z
     .string()
     .refine((h) => (RESERVATION_HORARIOS as readonly string[]).includes(h), 'Hora no válida'),
+  attendant_id: z.string().uuid().optional().nullable(),
 })
 
 /** No lanzar: devolver null si faltan env para evitar 405 en Vercel cuando falla la inicialización */
@@ -156,6 +157,7 @@ export async function POST(request: Request) {
       comentario,
       fecha,
       hora,
+      attendant_id,
     } = parseResult.data
 
     const supabase = getSupabaseAdmin()
@@ -200,6 +202,7 @@ export async function POST(request: Request) {
         fecha,
         hora,
         status: 'pendiente',
+        attendant_id: attendant_id || null,
       })
       .select('id')
       .single()

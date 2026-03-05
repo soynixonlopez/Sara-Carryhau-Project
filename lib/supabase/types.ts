@@ -15,14 +15,18 @@ export interface Reservation {
   hora: string
   status: ReservationStatus
   attendant_id: string | null
-  attendants?: { id: string; nombre: string } | null
+  attendants?: { id: string; nombre: string; apellido?: string | null } | null
 }
+
+export type AttendantRole = 'collaborator' | 'administrator'
 
 export interface Attendant {
   id: string
   nombre: string
   apellido?: string | null
+  email?: string | null
   user_id?: string | null
+  role?: AttendantRole | null
 }
 
 export interface ReservationInsert {

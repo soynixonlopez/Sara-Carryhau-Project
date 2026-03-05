@@ -175,15 +175,12 @@ Para agregar o modificar servicios, editar:
 ## 🚀 Despliegue
 
 ### Vercel (Recomendado)
-1. Conectar repositorio a Vercel
-2. Configurar variables de entorno de Cloudinary
-3. Desplegar automáticamente
-
-### Variables de Entorno Requeridas
-```
-NEXT_PUBLIC_SITE_URL=https://tu-dominio.com
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=tu_cloud_name
-```
+1. Conectar el repositorio a Vercel
+2. Añadir las variables de entorno (ver `.env.example`):
+   - **Supabase**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+   - **Admin**: `NEXT_PUBLIC_ADMIN_EMAIL` (correo del administrador principal)
+   - **Cloudinary** y resto opcionales
+3. Desplegar. El panel de administración (`/admin`) requiere login con el email configurado en `NEXT_PUBLIC_ADMIN_EMAIL`.
 
 ## 📞 Soporte
 
